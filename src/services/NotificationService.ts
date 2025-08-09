@@ -1,6 +1,6 @@
-import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { Alert, Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import { Alert } from 'react-native';
 
 // Configure notifications
 Notifications.setNotificationHandler({
@@ -8,6 +8,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -58,6 +60,7 @@ export class NotificationService {
           data: { type: 'medication_reminder' },
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
           hour: hours,
           minute: minutes,
           repeats: true,
@@ -98,8 +101,8 @@ export class NotificationService {
           data: { type: 'test' },
         },
         trigger: {
-          seconds: 2,
-        },
+          seconds: 1,
+        } as any,
       });
       
       console.log('Test notification scheduled');

@@ -2,12 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React from 'react';
 import {
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    Text,
-    TouchableOpacity,
-    View,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 export const RegisterChoiceScreen: React.FC = () => {
@@ -16,10 +16,6 @@ export const RegisterChoiceScreen: React.FC = () => {
     router.push('/(auth)/register-step-1' as any);
   };
 
-  const handleDoctorRegistration = () => {
-    // TODO: Implement doctor registration flow
-    alert('Registrasi dokter belum tersedia. Silakan hubungi administrator.');
-  };
 
   const handleBack = () => {
     router.back();
@@ -75,50 +71,7 @@ export const RegisterChoiceScreen: React.FC = () => {
                   <Ionicons name="chevron-forward" size={24} color="#2D5A4F" />
                 </View>
               </TouchableOpacity>
-
-              {/* Doctor Registration */}
-              <TouchableOpacity
-                onPress={handleDoctorRegistration}
-                className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 active:bg-gray-50"
-                activeOpacity={0.7}
-              >
-                <View className="flex-row items-center">
-                  <View className="w-16 h-16 bg-blue-100 rounded-full items-center justify-center mr-4">
-                    <Ionicons name="medical" size={32} color="#3B82F6" />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-xl font-kollektif font-bold text-gray-800 mb-2">
-                      Daftar sebagai Dokter
-                    </Text>
-                    <Text className="text-gray-600 font-kollektif text-sm leading-5">
-                      Untuk tenaga medis yang ingin memantau pasien TB dan memberikan konsultasi
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={24} color="#6B7280" />
-                </View>
-              </TouchableOpacity>
-
-              {/* Health Facility Registration */}
-              <TouchableOpacity
-                onPress={() => alert('Registrasi fasilitas kesehatan belum tersedia.')}
-                className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 active:bg-gray-50"
-                activeOpacity={0.7}
-              >
-                <View className="flex-row items-center">
-                  <View className="w-16 h-16 bg-green-100 rounded-full items-center justify-center mr-4">
-                    <Ionicons name="business" size={32} color="#10B981" />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-xl font-kollektif font-bold text-gray-800 mb-2">
-                      Daftar Fasilitas Kesehatan
-                    </Text>
-                    <Text className="text-gray-600 font-kollektif text-sm leading-5">
-                      Untuk rumah sakit, puskesmas, atau klinik yang ingin menggunakan sistem SMARTB
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={24} color="#6B7280" />
-                </View>
-              </TouchableOpacity>
+             
             </View>
 
             {/* Bottom Info */}

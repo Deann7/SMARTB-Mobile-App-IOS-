@@ -1,2 +1,5 @@
 import { RegisterChoiceScreen } from '../../src/screens';
-export default function Register() {  return <RegisterChoiceScreen />;}
+
+export default function Register() {
+  return <RegisterChoiceScreen />;
+}

@@ -1,14 +1,17 @@
 import { Button, DateInput, Dropdown, DropdownOption, InputField, MultilineInput } from '@/src/components';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { AuthService } from '../services/authService';
 
 // TB Type options
 const tbTypeOptions: DropdownOption[] = [
@@ -29,6 +32,21 @@ const drugCombinationOptions: DropdownOption[] = [
   { label: 'Kombinasi Khusus MDR', value: 'mdr_combination' },
 ];
 
+interface RegisterStep1FormData {
+  fullName: string;
+  nickname: string;
+  dateOfBirth: {
+    day: string;
+    month: string;
+    year: string;
+  };
+  phoneNumber: string;
+  email: string;
+  nationalId: string;
+  gender: string;
+  password: string;
+}
+
 interface RegisterStep2FormData {
   healthFacility: string;
   doctorName: string;
@@ -43,6 +61,7 @@ interface RegisterStep2FormData {
 }
 
 export const RegisterStep2Screen: React.FC = () => {
+  const [step1Data, setStep1Data] = useState<RegisterStep1FormData | null>(null);
   const [formData, setFormData] = useState<RegisterStep2FormData>({
     healthFacility: '',
     doctorName: '',
@@ -56,6 +75,23 @@ export const RegisterStep2Screen: React.FC = () => {
     comorbidities: '',
   });
   const [errors, setErrors] = useState<Partial<Omit<RegisterStep2FormData, 'diagnosisDate'> & { diagnosisDate: string }>>({});
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadStep1Data();
+  }, []);
+
+  const loadStep1Data = async () => {
+    try {
+      const step1DataString = await AsyncStorage.getItem('registerStep1Data');
+      if (step1DataString) {
+        const data = JSON.parse(step1DataString);
+        setStep1Data(data);
+      }
+    } catch (error) {
+      console.error('Error loading step 1 data:', error);
+    }
+  };
 
   const handleInputChange = (field: keyof Omit<RegisterStep2FormData, 'diagnosisDate'>, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -109,21 +145,92 @@ export const RegisterStep2Screen: React.FC = () => {
       newErrors.medicationCombination = 'Kombinasi obat harus dipilih';
     }
 
-    // Comorbidities is optional, so no validation needed
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleRegister = () => {
-    if (validateForm()) {
-      // TODO: Combine with step 1 data and implement actual registration logic
-      console.log('Step 2 form data:', formData);
+  const handleRegister = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    if (!step1Data) {
+      Alert.alert('Error', 'Data step 1 tidak ditemukan. Silakan kembali ke step 1.');
+      return;
+    }
+
+    try {
+      setLoading(true);
       
-      // Show success message then navigate to dashboard
-      // TODO: Implement real auth registration
-      alert('Registrasi berhasil! Selamat datang di SMARTB.');
-      router.replace('/(protected)/dashboard' as any);
+      // Use password from step 1 data
+      const password = step1Data.password || `${step1Data.email.split('@')[0]}${step1Data.nationalId.slice(-4)}`;
+
+      // Format dates
+      const dateOfBirth = `${step1Data.dateOfBirth.year}-${step1Data.dateOfBirth.month.padStart(2, '0')}-${step1Data.dateOfBirth.day.padStart(2, '0')}`;
+      const diagnosisDate = `${formData.diagnosisDate.year}-${formData.diagnosisDate.month.padStart(2, '0')}-${formData.diagnosisDate.day.padStart(2, '0')}`;
+
+      // Prepare user data for registration
+      const userData = {
+        email: step1Data.email,
+        password: password,
+        full_name: step1Data.fullName,
+        phone: step1Data.phoneNumber,
+        date_of_birth: dateOfBirth,
+        gender: step1Data.gender,
+        national_id: step1Data.nationalId,
+        treatment_start_date: diagnosisDate,
+        health_facility: formData.healthFacility,
+        doctor_name: formData.doctorName,
+        tb_type: formData.tbType,
+        medication_combination: formData.medicationCombination,
+        comorbidities: formData.comorbidities,
+      };
+
+      console.log('Attempting registration with data:', userData);
+
+      // Call the registration and sign-in service
+      const result = await AuthService.signUpAndSignIn(userData);
+      
+      console.log('Registration and sign-in result:', result);
+      
+      // Verify session was created
+      const session = await AuthService.verifySession(5, 1000);
+      
+      if (session || result.user || result.session) {
+        // Clear stored step 1 data
+        await AsyncStorage.removeItem('registerStep1Data');
+        
+        // Show success message
+        Alert.alert(
+          'Registrasi Berhasil!',
+          `Selamat datang di SMARTB!\n\nEmail: ${step1Data.email}\nPassword: ${password}\n\nHarap simpan informasi login Anda.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => router.replace('/(protected)/dashboard' as any),
+            },
+          ]
+        );
+      } else {
+        throw new Error('Registration failed - no user or session returned');
+      }
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      let errorMessage = 'Gagal mendaftar. Silakan coba lagi.';
+      
+      if (error?.message) {
+        if (error.message.includes('User already registered')) {
+          errorMessage = 'Email sudah terdaftar. Silakan login atau gunakan email lain.';
+        } else if (error.message.includes('Invalid email')) {
+          errorMessage = 'Format email tidak valid.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -214,6 +321,7 @@ export const RegisterStep2Screen: React.FC = () => {
                 title="Selesaikan Pendaftaran"
                 onPress={handleRegister}
                 variant="primary"
+                loading={loading}
               />
 
               <TouchableOpacity 

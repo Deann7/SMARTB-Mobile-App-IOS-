@@ -1,4 +1,5 @@
-import { Button, DateInput, InputField } from '@/src/components';
+import { Button, DateInput, Dropdown, DropdownOption, InputField } from '@/src/components';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -9,6 +10,12 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+
+// Gender options
+const genderOptions: DropdownOption[] = [
+  { label: 'Laki-laki', value: 'male' },
+  { label: 'Perempuan', value: 'female' },
+];
 
 interface RegisterStep1FormData {
   fullName: string;
@@ -21,6 +28,8 @@ interface RegisterStep1FormData {
   phoneNumber: string;
   email: string;
   nationalId: string;
+  gender: string;
+  password: string;
 }
 
 export const RegisterStep1Screen: React.FC = () => {
@@ -35,6 +44,8 @@ export const RegisterStep1Screen: React.FC = () => {
     phoneNumber: '',
     email: '',
     nationalId: '',
+    gender: '',
+    password: '',
   });
   const [errors, setErrors] = useState<Partial<Omit<RegisterStep1FormData, 'dateOfBirth'> & { dateOfBirth: string }>>({});
 
@@ -100,16 +111,33 @@ export const RegisterStep1Screen: React.FC = () => {
       newErrors.nationalId = 'NIK harus 16 digit';
     }
 
+    if (!formData.gender) {
+      newErrors.gender = 'Jenis kelamin harus dipilih';
+    }
+
+    if (!formData.password.trim()) {
+      newErrors.password = 'Password harus diisi';
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password minimal 6 karakter';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (validateForm()) {
-      // TODO: Store step 1 data in context or async storage
-      console.log('Step 1 form data:', formData);
-      // Navigate to step 2
-      router.push('/(auth)/register-step-2' as any);
+      try {
+        // Store step 1 data in AsyncStorage
+        await AsyncStorage.setItem('registerStep1Data', JSON.stringify(formData));
+        console.log('Step 1 form data:', formData);
+        // Navigate to step 2
+        router.push('/(auth)/register-step-2' as any);
+      } catch (error) {
+        console.error('Error storing step 1 data:', error);
+        // Still navigate to step 2 even if storage fails
+        router.push('/(auth)/register-step-2' as any);
+      }
     }
   };
 
@@ -163,6 +191,15 @@ export const RegisterStep1Screen: React.FC = () => {
                 error={errors.dateOfBirth}
               />
 
+              <Dropdown
+                label="Jenis Kelamin"
+                placeholder="Pilih jenis kelamin"
+                options={genderOptions}
+                value={formData.gender}
+                onSelect={(value: string) => handleInputChange('gender', value)}
+                error={errors.gender}
+              />
+
               <InputField
                 label="Nomor Telepon"
                 placeholder="Contoh: 08123456789"
@@ -188,6 +225,15 @@ export const RegisterStep1Screen: React.FC = () => {
                 onChangeText={(text: string) => handleInputChange('nationalId', text)}
                 keyboardType="numeric"
                 error={errors.nationalId}
+              />
+
+              <InputField
+                label="Password"
+                placeholder="Minimal 6 karakter"
+                value={formData.password}
+                onChangeText={(text: string) => handleInputChange('password', text)}
+                secureTextEntry={true}
+                error={errors.password}
               />
             </View>
 

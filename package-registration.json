@@ -1,0 +1,25 @@
+{
+  "name": "smartb-registration-script",
+  "version": "1.0.0",
+  "description": "Registration script for SMARTB application",
+  "main": "register-account.js",
+  "scripts": {
+    "test": "node test-registration.js",
+    "register": "node register-account.js",
+    "register:custom": "node register-account.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  },
+  "keywords": [
+    "smartb",
+    "registration",
+    "supabase",
+    "testing"
+  ],
+  "author": "SMARTB Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

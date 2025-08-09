@@ -33,7 +33,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow SMARTB to access your camera for medication verification."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -10,6 +10,7 @@ interface InputFieldProps {
   keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
   error?: string;
   label?: string;
+  editable?: boolean;
 }
 
 export const InputField: React.FC<InputFieldProps> = ({
@@ -20,6 +21,7 @@ export const InputField: React.FC<InputFieldProps> = ({
   keyboardType = 'default',
   error,
   label,
+  editable = true,
 }) => {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -38,7 +40,7 @@ export const InputField: React.FC<InputFieldProps> = ({
       <View
         className={`flex-row items-center bg-white border rounded-xl px-4 py-4 ${
           isFocused ? 'border-smar-green' : 'border-gray-200'
-        } ${error ? 'border-red-500' : ''}`}
+        } ${error ? 'border-red-500' : ''} ${!editable ? 'opacity-50' : ''}`}
       >
         <TextInput
           className="flex-1 font-kollektif text-base text-gray-800"
@@ -50,8 +52,9 @@ export const InputField: React.FC<InputFieldProps> = ({
           keyboardType={keyboardType}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
+          editable={editable}
         />
-        {secureTextEntry && (
+        {secureTextEntry && editable && (
           <TouchableOpacity onPress={togglePasswordVisibility}>
             <Ionicons
               name={isPasswordVisible ? 'eye-off' : 'eye'}

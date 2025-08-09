@@ -7,8 +7,11 @@ import {
     Text,
     TouchableOpacity,
     View,
+    ActivityIndicator,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { Button, InputField } from '../components';
+import { AuthService } from '../services/authService';
 
 interface LoginFormData {
   email: string;
@@ -21,6 +24,7 @@ export const LoginScreen: React.FC = () => {
     password: '',
   });
   const [errors, setErrors] = useState<Partial<LoginFormData>>({});
+  const [loading, setLoading] = useState(false);
 
   const handleInputChange = (field: keyof LoginFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -35,22 +39,73 @@ export const LoginScreen: React.FC = () => {
 
     if (!formData.email.trim()) {
       newErrors.email = 'Email atau nomor telepon harus diisi';
+    } else if (!formData.email.includes('@') && formData.email.length < 10) {
+      newErrors.email = 'Format email atau nomor telepon tidak valid';
     }
 
     if (!formData.password.trim()) {
       newErrors.password = 'Kata sandi harus diisi';
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Kata sandi minimal 6 karakter';
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleLogin = () => {
-    if (validateForm()) {
-      // TODO: Implement actual login logic
-      console.log('Login form data:', formData);
-      // After successful login, navigate to dashboard
-      router.replace('/(protected)/dashboard' as any);
+  const handleLogin = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // Attempt to sign in with Supabase
+      await AuthService.signIn(formData.email.trim(), formData.password);
+      
+      // Show success toast
+      Toast.show({
+        type: 'success',
+        text1: 'Login Berhasil',
+        text2: 'Selamat datang kembali!',
+        position: 'top',
+        visibilityTime: 2000,
+      });
+
+      // Navigate to dashboard after successful login
+      setTimeout(() => {
+        router.replace('/(protected)/dashboard' as any);
+      }, 1000);
+
+    } catch (error: any) {
+      console.error('Login error:', error);
+      
+      // Handle specific error cases
+      let errorMessage = 'Gagal masuk. Silakan coba lagi.';
+      
+      if (error?.message) {
+        if (error.message.includes('Invalid login credentials')) {
+          errorMessage = 'Email atau kata sandi salah. Silakan coba lagi.';
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = 'Email belum dikonfirmasi. Silakan cek email Anda.';
+        } else if (error.message.includes('Too many requests')) {
+          errorMessage = 'Terlalu banyak percobaan login. Silakan tunggu beberapa menit.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      // Show error toast
+      Toast.show({
+        type: 'error',
+        text1: 'Login Gagal',
+        text2: errorMessage,
+        position: 'top',
+        visibilityTime: 3000,
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -115,6 +170,7 @@ export const LoginScreen: React.FC = () => {
                 onChangeText={(text) => handleInputChange('email', text)}
                 keyboardType="email-address"
                 error={errors.email}
+                editable={!loading}
               />
 
               <InputField
@@ -123,16 +179,23 @@ export const LoginScreen: React.FC = () => {
                 onChangeText={(text) => handleInputChange('password', text)}
                 secureTextEntry
                 error={errors.password}
+                editable={!loading}
               />
             </View>
 
             {/* Action Buttons */}
             <View className="space-y-4">
               <Button
-                title="Masuk"
+                title={loading ? "Memproses..." : "Masuk"}
                 onPress={handleLogin}
                 variant="primary"
+                disabled={loading}
               />
+              {loading && (
+                <View className="items-center mt-4">
+                  <ActivityIndicator size="small" color="#2D5A4F" />
+                </View>
+              )}
             </View>
 
             {/* Create Account Link */}
@@ -144,6 +207,7 @@ export const LoginScreen: React.FC = () => {
                 <TouchableOpacity 
                   onPress={handleCreateAccount}
                   className="bg-smar-green px-6 py-3 rounded-lg"
+                  disabled={loading}
                 >
                   <Text className="text-white font-kollektif text-base font-medium">
                     Daftar Sekarang
