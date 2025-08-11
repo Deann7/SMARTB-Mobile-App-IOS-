@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -53,12 +54,12 @@ export const DashboardScreen: React.FC = () => {
       setLoading(true);
 
       // Get current user
-      const user = await AuthService.getCurrentUser();
-      if (!user) {
-        console.log("No user found, redirecting to login");
-        router.replace("/(auth)/login");
-        return;
-      }
+        const user = await AuthService.getCurrentUser();
+        if (!user) {
+          console.log("No user found, redirecting to login");
+          router.replace("/(auth)/login" as any);
+          return;
+        }
 
       console.log("Loading dashboard for user:", user.id);
 
@@ -221,6 +222,10 @@ export const DashboardScreen: React.FC = () => {
     router.push("/(protected)/menu" as any);
   };
 
+  const handleCalendar = () => {
+    router.push("/(protected)/calendar" as any);
+  };
+
   const handleRefresh = () => {
     loadDashboardData();
   };
@@ -299,8 +304,6 @@ export const DashboardScreen: React.FC = () => {
                 Semangat menumbuhkan pohon paru-paru!
               </Text>
 
-        
-
               {/* Input Data Button */}
               <TouchableOpacity
                 onPress={handleInputDataToday}
@@ -336,6 +339,25 @@ export const DashboardScreen: React.FC = () => {
           </View>
           
         </ScrollView>
+        
+        {/* Floating Calendar Button */}
+        <TouchableOpacity
+          onPress={handleCalendar}
+          className="absolute bottom-6 right-6 bg-smar-green rounded-full p-4 shadow-lg"
+          activeOpacity={0.8}
+          style={{
+            shadowColor: '#000',
+            shadowOffset: {
+              width: 0,
+              height: 2,
+            },
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84,
+            elevation: 5,
+          }}
+        >
+          <Ionicons name="calendar" size={24} color="white" />
+        </TouchableOpacity>
       </SafeAreaView>
     </>
   );

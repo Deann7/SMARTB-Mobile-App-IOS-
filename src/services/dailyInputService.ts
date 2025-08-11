@@ -43,6 +43,7 @@ export class DailyInputService {
         ...input,
         user_id: user.id,
         is_complete: isComplete,
+        points_earned: 100, // Set points earned to 100 for each input
         updated_at: new Date().toISOString(),
       };
 
@@ -59,7 +60,7 @@ export class DailyInputService {
 
         // Try to update dashboard points (non-critical)
         try {
-          await this.updateDashboardPoints(user.id, 10); // 10 points for daily input update
+          await this.updateDashboardPoints(user.id, 100); // 100 points for daily input update
         } catch (pointsError) {
           console.log('Dashboard points update failed (non-critical):', pointsError);
         }
@@ -77,7 +78,7 @@ export class DailyInputService {
 
         // Try to update dashboard points (non-critical)
         try {
-          await this.updateDashboardPoints(user.id, 10); // 10 points for new daily input
+          await this.updateDashboardPoints(user.id, 100); // 100 points for new daily input
         } catch (pointsError) {
           console.log('Dashboard points update failed (non-critical):', pointsError);
         }
@@ -237,10 +238,10 @@ export class DailyInputService {
   static async calculatePoints(inputDate: string): Promise<number> {
     try {
       console.log('calculatePoints called - this method is deprecated, using direct dashboard update instead');
-      return 10; // Default points for daily input
+      return 100; // Default points for daily input (updated from 10 to 100)
     } catch (error) {
       console.error('Calculate points error:', error);
-      return 10;
+      return 100;
     }
   }
 

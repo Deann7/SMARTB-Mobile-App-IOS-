@@ -103,7 +103,7 @@ export const InputDataScreen: React.FC = () => {
       const user = await AuthService.getCurrentUser();
       if (!user) {
         console.log('No user found, redirecting to login');
-        router.replace('/(auth)/login');
+        router.replace('/(auth)/login' as any);
         return;
       }
 

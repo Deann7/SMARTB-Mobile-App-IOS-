@@ -3,13 +3,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { AuthService } from '../services/authService';
@@ -220,7 +220,7 @@ export const RegisterStep2Screen: React.FC = () => {
         setTimeout(() => {
           Alert.alert(
             '✅ Akun Berhasil Dibuat',
-            `Selamat! Registrasi Anda telah berhasil.\n\n📱 Nomor Telepon: ${step1Data.phoneNumber}\n🔐 Password: ${password}\n\nSilakan login menggunakan kredensial Anda untuk mengakses aplikasi SMARTB.`,
+            `Selamat! Registrasi Anda telah berhasil.\n\n📱 Nomor Telepon: ${step1Data.phoneNumber}\n\nSilakan login menggunakan kredensial Anda untuk mengakses aplikasi SMARTB.`,
             [
               {
                 text: 'Login Sekarang',

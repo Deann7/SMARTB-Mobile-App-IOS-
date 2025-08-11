@@ -66,6 +66,13 @@ export default function ProtectedLayout() {
           title: 'Verifikasi Kamera'
         }} 
       />
+      <Stack.Screen 
+        name="calendar" 
+        options={{ 
+          headerShown: false,
+          title: 'Kalender'
+        }} 
+      />
       {/* TODO: Add more protected routes here */}
     </Stack>
   );
