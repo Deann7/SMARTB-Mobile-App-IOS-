@@ -1,4 +1,4 @@
-package com.anonymous.SMARTBIOS
+package com.anonymous.smartbios
 
 import android.app.Application
 import android.content.res.Configuration

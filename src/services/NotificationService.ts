@@ -23,15 +23,36 @@ export class NotificationService {
     let finalStatus = existingStatus;
     
     if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+          allowAnnouncements: true,
+        },
+        android: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+        },
+      });
       finalStatus = status;
     }
     
     if (finalStatus !== 'granted') {
       Alert.alert(
-        'Permission Required',
-        'Please enable notifications to receive medication reminders.',
-        [{ text: 'OK' }]
+        'Izin Notifikasi Diperlukan',
+        'Mohon aktifkan notifikasi untuk menerima pengingat minum obat.',
+        [
+          { text: 'Batal', style: 'cancel' },
+          { 
+            text: 'Pengaturan', 
+            onPress: () => {
+              // On Android, we can guide user to settings
+              console.log('Redirect to notification settings');
+            }
+          }
+        ]
       );
       return false;
     }
@@ -53,6 +74,19 @@ export class NotificationService {
       
       const [hours, minutes] = time.split(':').map(Number);
       
+      // Calculate seconds until the specified time today
+      const now = new Date();
+      const scheduledTime = new Date();
+      scheduledTime.setHours(hours, minutes, 0, 0);
+      
+      // If the time has already passed today, schedule for tomorrow
+      if (scheduledTime <= now) {
+        scheduledTime.setDate(scheduledTime.getDate() + 1);
+      }
+      
+      const secondsUntilTrigger = Math.floor((scheduledTime.getTime() - now.getTime()) / 1000);
+      
+      // Schedule the first notification
       await Notifications.scheduleNotificationAsync({
         content: {
           title: "Waktu Minum Obat",
@@ -60,14 +94,33 @@ export class NotificationService {
           data: { type: 'medication_reminder' },
         },
         trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-          hour: hours,
-          minute: minutes,
-          repeats: true,
+          seconds: secondsUntilTrigger,
+          repeats: false,
         },
       });
       
-      console.log(`Medication alarm scheduled for ${time}`);
+      // Schedule daily repeating notifications (Android-compatible approach)
+      // Schedule for the next 30 days
+      for (let i = 1; i <= 30; i++) {
+        const futureDate = new Date(scheduledTime);
+        futureDate.setDate(futureDate.getDate() + i);
+        
+        const secondsUntilFuture = Math.floor((futureDate.getTime() - now.getTime()) / 1000);
+        
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "Waktu Minum Obat",
+            body: "Jangan lupa minum obat TB Anda",
+            data: { type: 'medication_reminder' },
+          },
+          trigger: {
+            seconds: secondsUntilFuture,
+            repeats: false,
+          },
+        });
+      }
+      
+      console.log(`Medication alarm scheduled for ${time} (next 30 days)`);
     } catch (error) {
       console.log('Error scheduling medication alarm:', error);
       throw error;
@@ -94,6 +147,12 @@ export class NotificationService {
 
   static async sendTestNotification(): Promise<void> {
     try {
+      // Request permissions first
+      const hasPermission = await this.requestPermissions();
+      if (!hasPermission) {
+        throw new Error('Notification permissions not granted');
+      }
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title: "Test Notification",
@@ -101,13 +160,23 @@ export class NotificationService {
           data: { type: 'test' },
         },
         trigger: {
-          seconds: 1,
-        } as any,
+          seconds: 2,
+        },
       });
       
-      console.log('Test notification scheduled');
+      console.log('Test notification scheduled for 2 seconds');
+      Alert.alert(
+        'Test Notification',
+        'Notifikasi test telah dijadwalkan dan akan muncul dalam 2 detik',
+        [{ text: 'OK' }]
+      );
     } catch (error) {
       console.log('Error sending test notification:', error);
+      Alert.alert(
+        'Error',
+        `Gagal mengirim test notification: ${error}`,
+        [{ text: 'OK' }]
+      );
       throw error;
     }
   }

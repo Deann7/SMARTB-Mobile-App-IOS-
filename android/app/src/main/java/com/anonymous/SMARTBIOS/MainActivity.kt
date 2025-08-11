@@ -1,4 +1,4 @@
-package com.anonymous.SMARTBIOS
+package com.anonymous.smartbios
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
