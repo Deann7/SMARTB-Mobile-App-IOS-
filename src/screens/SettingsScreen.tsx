@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
+  Image,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -183,42 +184,40 @@ export const SettingsScreen: React.FC = () => {
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor="#2D5A4F" />
-      <SafeAreaView className="flex-1 bg-smar-light">
+      <SafeAreaView className="flex-1 bg-[#f1f8f5]">
         <ScrollView 
           className="flex-1" 
           contentContainerStyle={{ flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
         >
           {/* Header Section */}
-          <View className="bg-smar-green px-6 pt-8 pb-16 relative">
-            {/* Back Button */}
-            <TouchableOpacity
+          <TouchableOpacity
               onPress={handleBackPress}
-              className="absolute top-12 left-6 z-10"
+              className="top-10 left-6 z-10"
               activeOpacity={0.8}
             >
-              <View className="bg-white/20 rounded-full p-2">
-                <Text className="text-white font-kollektif text-lg">←</Text>
+              <View className="">
+                <Text className="text-black font-bold font-kollektif text-2xl">←</Text>
               </View>
             </TouchableOpacity>
+        
+          <View className="px-6 pt-4 pb-4 relative">
+            {/* Back Button */}
+        
 
             {/* Header Content */}
-            <View className="flex-row items-center justify-between mt-12">
-              <View className="bg-smar-green rounded-lg p-4">
-                <Text className="text-white font-kollektif text-xl font-bold">
+            <View className="flex-row items-center justify-between mt-6 px-4">
+              <View className="bg-smar-green  p-6 max-w-64 rounded-3xl flex-1">
+                <Text className="text-white font-kollektif text-2xl font-bold text-center">
                   Pengaturan
                 </Text>
               </View>
-              
-              {/* Settings Icons */}
-              <View className="flex-row">
-                <Ionicons name="settings" size={24} color="#525252" />
-                <Ionicons name="settings" size={20} color="#525252" style={{ marginLeft: -8 }} />
-                <Ionicons name="settings" size={16} color="#525252" style={{ marginLeft: -8 }} />
-              </View>
+              <Image
+                source={require('../../assets/images/png/settings.png')}
+                className="w-32 h-32"
+              />
             </View>
           </View>
-
           {/* Settings Content */}
           <View className="flex-1 px-6 py-8">
             {/* Informasi Medis */}

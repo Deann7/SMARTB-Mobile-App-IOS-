@@ -1,15 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Image,
   SafeAreaView,
   ScrollView,
   StatusBar,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 interface FAQItem {
@@ -94,14 +95,14 @@ const SearchBar: React.FC<{
   onSearchChange: (query: string) => void;
 }> = ({ searchQuery, onSearchChange }) => {
   return (
-    <View className="bg-gray-100 rounded-xl mx-4 my-4 px-4 py-3 flex-row items-center">
+    <View className="bg-[#97aba3] rounded-fulll mx-4 my-4 px-4 py-3 flex-row items-center">
       <Ionicons name="search" size={20} color="#666" />
       <TextInput
-        className="flex-1 ml-3 font-kollektif text-base"
+        className="flex-1 ml-3 font-kollektif text-base rounded-full"
         placeholder="Pertanyaan yang sering diajukan"
         value={searchQuery}
         onChangeText={onSearchChange}
-        placeholderTextColor="#999"
+        placeholderTextColor="#1c4735"
       />
     </View>
   );
@@ -165,47 +166,37 @@ export const AboutTBScreen: React.FC = () => {
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor="#2D5A4F" />
-      <SafeAreaView className="flex-1 bg-smar-light">
+      <SafeAreaView className="flex-1 bg-[#f1f8f5]">
         <ScrollView 
           className="flex-1" 
           contentContainerStyle={{ flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
         >
-          {/* Header Section */}
-          <View className="bg-smar-green px-6 pt-8 pb-16 relative">
-            {/* Back Button */}
-            <TouchableOpacity
+              <TouchableOpacity
               onPress={handleBackPress}
-              className="absolute top-12 left-6 z-10"
+              className="top-10 left-6 z-10"
               activeOpacity={0.8}
             >
-              <View className="bg-white/20 rounded-full p-2">
-                <Text className="text-white font-kollektif text-lg">←</Text>
+              <View className="">
+                <Text className="text-black font-bold font-kollektif text-2xl">←</Text>
               </View>
             </TouchableOpacity>
+        
+          <View className="px-6 pt-4 pb-4 relative">
+            {/* Back Button */}
+        
 
             {/* Header Content */}
-            <View className="flex-row items-center justify-between mt-12">
-              <View className="bg-smar-green rounded-lg p-4">
-                <Text className="text-white font-kollektif text-xl font-bold">
+            <View className="flex-row items-center justify-between mt-6 px-4">
+              <View className="bg-smar-green  p-6 max-w-64 rounded-3xl flex-1">
+                <Text className="text-white font-kollektif text-2xl font-bold text-center">
                   Tentang TB
                 </Text>
               </View>
-              
-              {/* 3D Icon - Book with magnifying glass */}
-              <View className="items-center">
-                <View className="w-16 h-16 bg-purple-200 rounded-lg items-center justify-center relative">
-                  {/* Book */}
-                  <View className="w-12 h-8 bg-purple-300 rounded-sm" />
-                  {/* Magnifying glass */}
-                  <View className="absolute -top-1 -right-1 w-6 h-6 bg-blue-300 rounded-full items-center justify-center">
-                    <View className="w-3 h-3 bg-blue-400 rounded-full" />
-                  </View>
-                  {/* Sparkles */}
-                  <View className="absolute -top-2 -left-2 w-2 h-2 bg-yellow-300 rounded-full" />
-                  <View className="absolute -bottom-1 -right-2 w-1.5 h-1.5 bg-yellow-300 rounded-full" />
-                </View>
-              </View>
+              <Image
+                source={require('../../assets/images/png/about-tb.png')}
+                className="w-32 h-32"
+              />
             </View>
           </View>
 
@@ -217,7 +208,7 @@ export const AboutTBScreen: React.FC = () => {
 
           {/* FAQ List Section */}
           <View className="flex-1 px-4 pb-8">
-            <View className="bg-white rounded-lg overflow-hidden">
+            <View className="bg-white rounded-lg overflow-hidden mb-4">
               {filteredFAQ.map((item) => (
                 <FAQItem
                   key={item.id}

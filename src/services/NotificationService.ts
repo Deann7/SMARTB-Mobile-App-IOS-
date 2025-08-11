@@ -5,7 +5,6 @@ import { Alert } from 'react-native';
 // Configure notifications
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
     shouldShowBanner: true,
@@ -74,19 +73,7 @@ export class NotificationService {
       
       const [hours, minutes] = time.split(':').map(Number);
       
-      // Calculate seconds until the specified time today
-      const now = new Date();
-      const scheduledTime = new Date();
-      scheduledTime.setHours(hours, minutes, 0, 0);
-      
-      // If the time has already passed today, schedule for tomorrow
-      if (scheduledTime <= now) {
-        scheduledTime.setDate(scheduledTime.getDate() + 1);
-      }
-      
-      const secondsUntilTrigger = Math.floor((scheduledTime.getTime() - now.getTime()) / 1000);
-      
-      // Schedule the first notification
+      // Schedule a single daily repeating notification
       await Notifications.scheduleNotificationAsync({
         content: {
           title: "Waktu Minum Obat",
@@ -94,33 +81,13 @@ export class NotificationService {
           data: { type: 'medication_reminder' },
         },
         trigger: {
-          seconds: secondsUntilTrigger,
-          repeats: false,
+          hour: hours,
+          minute: minutes,
+          repeats: true,
         },
       });
       
-      // Schedule daily repeating notifications (Android-compatible approach)
-      // Schedule for the next 30 days
-      for (let i = 1; i <= 30; i++) {
-        const futureDate = new Date(scheduledTime);
-        futureDate.setDate(futureDate.getDate() + i);
-        
-        const secondsUntilFuture = Math.floor((futureDate.getTime() - now.getTime()) / 1000);
-        
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: "Waktu Minum Obat",
-            body: "Jangan lupa minum obat TB Anda",
-            data: { type: 'medication_reminder' },
-          },
-          trigger: {
-            seconds: secondsUntilFuture,
-            repeats: false,
-          },
-        });
-      }
-      
-      console.log(`Medication alarm scheduled for ${time} (next 30 days)`);
+      console.log(`Medication alarm scheduled for ${time} (daily repeating)`);
     } catch (error) {
       console.log('Error scheduling medication alarm:', error);
       throw error;

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Image,
   SafeAreaView,
@@ -9,8 +9,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { User } from '../lib/supabase';
+import { AuthService } from '../services/authService';
 
 export const OtherMenuScreen: React.FC = () => {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const handleMenuPress = (menuName: string) => {
     console.log(`Navigating to ${menuName} page`);
     
@@ -39,6 +42,22 @@ export const OtherMenuScreen: React.FC = () => {
     router.back();
   };
 
+  const loadUserName = async () => {
+    try {
+      const user = await AuthService.getCurrentUser();
+      if (user) {
+        setCurrentUser(user);
+        console.log('Current user loaded:', user);
+      }
+    } catch (error) {
+      console.error('Failed to load user data:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadUserName();
+  }, []); 
+
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor="#2D5A4F" />
@@ -49,28 +68,33 @@ export const OtherMenuScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
         >
           {/* Header Section */}
-          <View className="relative mb-6 mt-12">
-            {/* Welcome Message Box */}
-            <View className="bg-smar-green border-4 border-purple-500 rounded-lg p-6 mx-4">
-              {/* Icon at the top */}
-              <View className="items-center mb-2">
-                <Image 
-                  source={require('../../assets/images/png/icon.png')}
-                  style={{ width: 32, height: 32 }}
-                  resizeMode="contain"
-                />
+          <TouchableOpacity
+              onPress={handleBackPress}
+              className="top-10 left-6 z-10"
+              activeOpacity={0.8}
+            >
+              <View className="">
+                <Text className="text-black font-bold font-kollektif text-2xl">←</Text>
               </View>
-              
-              <Text className="text-white font-kollektif text-sm text-center">
-                Selamat datang kembali
-              </Text>
-              <Text className="text-white font-kollektif text-2xl font-bold text-center">
-                Putri
-              </Text>
-            </View>
+            </TouchableOpacity>
+        
+          <View className="px-3 pt-4 pb-4 relative">        
 
-            {/* Medical Illustrations */}
-            
+            {/* Header Content */}
+            <View className="flex-row items-center justify-between mt-6 px-2">
+              <View className="bg-smar-green p-4 max-w-full rounded-3xl flex-1">
+                <Text className="text-white font-kollektif text-md font-bold text-center">
+                  Selamat datang kembali
+                </Text>
+                <Text className="text-white font-kollektif text-3xl font-bold text-center">
+                  {currentUser?.nickname || currentUser?.full_name || 'User'}
+                </Text>
+              </View>
+              <Image
+                source={require('../../assets/images/png/icon.png')}
+                className="w-32 h-32"
+              />
+            </View>
           </View>
 
           {/* Menu Grid Section */}
@@ -82,16 +106,15 @@ export const OtherMenuScreen: React.FC = () => {
               {/* Tentang TB */}
               <TouchableOpacity
                 onPress={() => handleMenuPress('Tentang TB')}
-                className="bg-white border border-[#1c4735] rounded-xl p-4 shadow-sm mb-4"
+                className="border-2 border-[#1c4735] rounded-xl p-2 mb-4"
                 style={{ width: '48%' }}
                 activeOpacity={0.8}
               >
                 <View className="items-center">
                   <Image 
                     source={require('../../assets/images/png/about-tb.png')}
-                    style={{ width: 48, height: 48 }}
-                    resizeMode="contain"
-                  />
+                    style={{ width: 72, height: 72 }}
+                    />
                   <Text className="text-[#1c4735] font-kollektif text-base font-medium text-center mt-3">
                     Tentang TB
                   </Text>
@@ -101,17 +124,17 @@ export const OtherMenuScreen: React.FC = () => {
               {/* Pengaturan */}
               <TouchableOpacity
                 onPress={() => handleMenuPress('Pengaturan')}
-                className="bg-white border border-[#1c4735] rounded-xl p-4 shadow-sm mb-4"
+                className="border-2 border-[#1c4735] rounded-xl p-2 mb-4"
                 style={{ width: '48%' }}
-                activeOpacity={0.8}
+                activeOpacity={1}
               >
                 <View className="items-center">
                   <Image 
                     source={require('../../assets/images/png/settings.png')}
-                    style={{ width: 48, height: 48 }}
-                    resizeMode="contain"
+                    style={{ width: 72, height: 72 }}
+      
                   />
-                  <Text className="text-gray-700 font-kollektif text-base font-medium text-center mt-3">
+                  <Text className="text-[#1c4735] font-kollektif text-base font-medium text-center mt-3">
                     Pengaturan
                   </Text>
                 </View>
@@ -120,15 +143,15 @@ export const OtherMenuScreen: React.FC = () => {
               {/* Komunitas TB */}
               <TouchableOpacity
                 onPress={() => handleMenuPress('Komunitas TB')}
-                className="bg-white border border-[#1c4735]  rounded-xl p-4 shadow-sm mb-4"
+                className="border-2 border-[#1c4735]  rounded-xl p-2 mb-4"
                 style={{ width: '48%' }}
                 activeOpacity={0.8}
               >
                 <View className="items-center">
                   <Image 
                     source={require('../../assets/images/png/community.png')}
-                    style={{ width: 48, height: 48 }}
-                    resizeMode="contain"
+                    style={{ width: 72, height: 72 }}
+                   
                   />
                   <Text className="text-[#1c4735] font-kollektif text-base font-medium text-center mt-3">
                     Komunitas TB
@@ -139,15 +162,15 @@ export const OtherMenuScreen: React.FC = () => {
               {/* Konsultasi */}
               <TouchableOpacity
                 onPress={() => handleMenuPress('Konsultasi')}
-                className="bg-white border border-[#1c4735]  rounded-xl p-4 shadow-sm mb-4"
+                className="border-2 border-[#1c4735]  rounded-xl p-2 mb-4"
                 style={{ width: '48%' }}
                 activeOpacity={0.8}
               >
                 <View className="items-center">
                   <Image 
                     source={require('../../assets/images/png/consultation.png')}
-                    style={{ width: 48, height: 48 }}
-                    resizeMode="contain"
+                      style={{ width: 72, height: 72 }}
+                   
                   />
                   <Text className="text-[#1c4735] font-kollektif text-base font-medium text-center mt-3">
                     Konsultasi

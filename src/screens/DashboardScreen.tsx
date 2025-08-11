@@ -1,6 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,10 +11,10 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { UserDashboard, supabase } from '../lib/supabase';
-import { AuthService } from '../services/authService';
-import { DailyInputService } from '../services/dailyInputService';
+} from "react-native";
+import { UserDashboard, supabase } from "../lib/supabase";
+import { AuthService } from "../services/authService";
+import { DailyInputService } from "../services/dailyInputService";
 
 export const DashboardScreen: React.FC = () => {
   const [userData, setUserData] = useState<UserDashboard | null>(null);
@@ -35,7 +34,7 @@ export const DashboardScreen: React.FC = () => {
   // Auto-refresh dashboard when screen is focused (e.g., returning from input screen)
   useFocusEffect(
     useCallback(() => {
-      console.log('Dashboard screen focused, refreshing data...');
+      console.log("Dashboard screen focused, refreshing data...");
       loadDashboardData();
     }, [])
   );
@@ -52,16 +51,16 @@ export const DashboardScreen: React.FC = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      
+
       // Get current user
       const user = await AuthService.getCurrentUser();
       if (!user) {
-        console.log('No user found, redirecting to login');
-        router.replace('/(auth)/login');
+        console.log("No user found, redirecting to login");
+        router.replace("/(auth)/login");
         return;
       }
 
-      console.log('Loading dashboard for user:', user.id);
+      console.log("Loading dashboard for user:", user.id);
 
       // Store current user data
       setCurrentUser(user);
@@ -70,7 +69,7 @@ export const DashboardScreen: React.FC = () => {
       if (user.created_at) {
         const daysSince = calculateDaysSinceRegistration(user.created_at);
         setDaysSinceRegistration(daysSince);
-        console.log('Days since registration:', daysSince);
+        console.log("Days since registration:", daysSince);
       }
 
       // Get treatment progress information
@@ -80,40 +79,48 @@ export const DashboardScreen: React.FC = () => {
 
       // Get user dashboard data using direct table access (more reliable)
       try {
-        console.log('Trying to get user dashboard from user_dashboard table...');
-        
+        console.log(
+          "Trying to get user dashboard from user_dashboard table..."
+        );
+
         // Try to get from user_dashboard table first
         const { data: dashboardData, error: dashboardError } = await supabase
-          .from('user_dashboard')
-          .select('*')
-          .eq('user_id', user.id)
+          .from("user_dashboard")
+          .select("*")
+          .eq("user_id", user.id)
           .single();
-        
+
         if (dashboardError) {
-          console.log('user_dashboard table access failed:', dashboardError.message);
-          console.log('User dashboard not found, creating...');
-          
+          console.log(
+            "user_dashboard table access failed:",
+            dashboardError.message
+          );
+          console.log("User dashboard not found, creating...");
+
           // Try to create dashboard entry
           try {
             const { data: newDashboard, error: createError } = await supabase
-              .from('user_dashboard')
+              .from("user_dashboard")
               .insert({
                 user_id: user.id,
                 total_points: 0,
                 current_streak: 0,
-                longest_streak: 0
+                longest_streak: 0,
               })
               .select()
               .single();
-            
+
             if (createError) {
-              console.log('Failed to create dashboard, using default:', createError.message);
+              console.log(
+                "Failed to create dashboard, using default:",
+                createError.message
+              );
               throw createError;
             } else {
-              console.log('Dashboard created successfully:', newDashboard);
+              console.log("Dashboard created successfully:", newDashboard);
               const formattedDashboard: UserDashboard = {
                 user_id: newDashboard.user_id,
-                full_name: user.full_name || 'User',
+                full_name: user.full_name || "User",
                 current_day: currentDay,
                 total_points: newDashboard.total_points || 0,
                 streak_days: newDashboard.current_streak || 0,
@@ -126,7 +133,7 @@ export const DashboardScreen: React.FC = () => {
               setUserData(formattedDashboard);
             }
           } catch (createError) {
-            console.log('Create dashboard failed, using AuthService fallback');
+            console.log("Create dashboard failed, using AuthService fallback");
             const fallbackData = await AuthService.getUserDashboard(user.id);
             // Update fallback data with calculated current day
             fallbackData.current_day = currentDay;
@@ -134,10 +141,13 @@ export const DashboardScreen: React.FC = () => {
             setUserData(fallbackData);
           }
         } else {
-          console.log('Dashboard data loaded from user_dashboard table:', dashboardData);
+          console.log(
+            "Dashboard data loaded from user_dashboard table:",
+            dashboardData
+          );
           const formattedDashboard: UserDashboard = {
             user_id: dashboardData.user_id,
-            full_name: user.full_name || 'User',
+            full_name: user.full_name || "User",
             current_day: currentDay, // Calculated from treatment_start_date
             total_points: dashboardData.total_points || 0,
             streak_days: dashboardData.current_streak || 0,
@@ -150,12 +160,12 @@ export const DashboardScreen: React.FC = () => {
           setUserData(formattedDashboard);
         }
       } catch (dashboardError) {
-        console.error('Get user dashboard error:', dashboardError);
-        console.log('All dashboard methods failed, using default values');
+        console.error("Get user dashboard error:", dashboardError);
+        console.log("All dashboard methods failed, using default values");
         // Create default dashboard data if everything fails
         const defaultDashboard: UserDashboard = {
           user_id: user.id,
-          full_name: user.full_name || 'User',
+          full_name: user.full_name || "User",
           current_day: currentDay,
           total_points: 0,
           streak_days: 0,
@@ -173,7 +183,7 @@ export const DashboardScreen: React.FC = () => {
         const todayStatus = await DailyInputService.getTodayInputStatus();
         setTodayInputStatus(todayStatus);
       } catch (inputError) {
-        console.error('Get today input status error:', inputError);
+        console.error("Get today input status error:", inputError);
         // Set default status
         setTodayInputStatus({
           hasInput: false,
@@ -181,11 +191,9 @@ export const DashboardScreen: React.FC = () => {
           pointsEarned: 0,
         });
       }
-        
-
     } catch (error) {
-      console.error('Load dashboard data error:', error);
-      Alert.alert('Error', 'Gagal memuat data dashboard');
+      console.error("Load dashboard data error:", error);
+      Alert.alert("Error", "Gagal memuat data dashboard");
     } finally {
       setLoading(false);
     }
@@ -194,20 +202,23 @@ export const DashboardScreen: React.FC = () => {
   const handleInputDataToday = () => {
     if (todayInputStatus.hasInput) {
       Alert.alert(
-        'Data Sudah Diinput',
-        'Anda sudah menginput data hari ini. Apakah ingin mengubah data?',
+        "Data Sudah Diinput",
+        "Anda sudah menginput data hari ini. Apakah ingin mengubah data?",
         [
-          { text: 'Batal', style: 'cancel' },
-          { text: 'Ubah', onPress: () => router.push('/(protected)/input-data' as any) }
+          { text: "Batal", style: "cancel" },
+          {
+            text: "Ubah",
+            onPress: () => router.push("/(protected)/input-data" as any),
+          },
         ]
       );
     } else {
-      router.push('/(protected)/camera-verification' as any);
+      router.push("/(protected)/camera-verification" as any);
     }
   };
 
   const handleMenuLainnya = () => {
-    router.push('/(protected)/menu' as any);
+    router.push("/(protected)/menu" as any);
   };
 
   const handleRefresh = () => {
@@ -220,7 +231,9 @@ export const DashboardScreen: React.FC = () => {
         <StatusBar barStyle="light-content" backgroundColor="#22C55E" />
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#22C55E" />
-          <Text className="text-gray-600 mt-4 font-kollektif">Memuat data...</Text>
+          <Text className="text-gray-600 mt-4 font-kollektif">
+            Memuat data...
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -229,9 +242,9 @@ export const DashboardScreen: React.FC = () => {
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor="#22C55E" />
-      <SafeAreaView className="flex-1 bg-gray-50">
-        <ScrollView 
-          className="flex-1" 
+      <SafeAreaView className="flex-1 bg-[#f1f8f5]">
+        <ScrollView
+          className="flex-1"
           contentContainerStyle={{ flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -239,127 +252,89 @@ export const DashboardScreen: React.FC = () => {
           }
         >
           {/* Header with background */}
-          <View className="bg-smar-green px-6 pt-8 pb-16 relative">
-            {/* Welcome message */}
-            <View className="bg-smar-green rounded-lg p-4 mb-6">
-              <Text className="text-white font-kollektif text-lg font-bold text-center">
-                Selamat datang kembali
-              </Text>
-              <Text className="text-white font-kollektif text-lg font-bold text-center">
-                {currentUser?.nickname || currentUser?.full_name || 'Pengguna'}
-              </Text>
-            </View>
-
-            {/* Treatment Progress Card */}
-            <View className="bg-white rounded-3xl p-6 mx-4 shadow-lg">
-              <View className="items-center">
-                <Text className="text-smar-green font-kollektif text-4xl font-bold mb-2">
-                  Hari {daysSinceRegistration}
+          <View className="px-3 pt-8 relative">
+            {/* Header Content */}
+            <View className="flex-row items-center justify-between mt-8 px-2">
+              <View className="bg-smar-green p-4 max-w-full rounded-3xl flex-1">
+                <Text className="text-white font-kollektif text-md font-bold text-center">
+                  Selamat datang kembali
                 </Text>
-                <Text className="text-gray-600 font-kollektif text-base mb-4">
-                  Pengobatan Fase {userData?.treatment_phase || 'Intensif'}
+                <Text className="text-white font-kollektif text-3xl font-bold text-center">
+                  {currentUser?.nickname || currentUser?.full_name || "User"}
                 </Text>
-                
-                {/* Points Display */}
-                <View className="bg-green-50 rounded-lg p-4 mb-4 w-full">
-                  <Text className="text-smar-green font-kollektif text-lg font-bold text-center">
-                    {userData?.total_points || 0} Poin
-                  </Text>
-                  <Text className="text-gray-600 font-kollektif text-sm text-center">
-                    Streak: {userData?.streak_days || 0} hari
-                  </Text>
-                </View>
-
-
-                {/* Lungs illustration area */}
-                <View className="h-32 w-32 bg-gray-100 rounded-full items-center justify-center mb-6">
-                  <Ionicons name="fitness" size={48} color="#22C55E" />
-                </View>
-
-                <Text className="text-gray-600 font-kollektif text-sm text-center mb-6">
-                  Semangat menumbuhkan pohon paru-paru!
-                </Text>
-
-                {/* Today's Status */}
-                {todayInputStatus.hasInput && (
-                  <View className="bg-green-50 rounded-lg p-3 mb-4 w-full">
-                    <Text className="text-green-700 font-kollektif text-sm text-center">
-                      ✅ Data hari ini sudah diinput (+{todayInputStatus.pointsEarned} poin)
-                    </Text>
-                  </View>
-                )}
-
-                {/* Input Data Button */}
-                <TouchableOpacity
-                  onPress={handleInputDataToday}
-                  className={`rounded-full px-8 py-4 mb-4 shadow-sm ${
-                    todayInputStatus.hasInput 
-                      ? 'bg-blue-500 border-2 border-blue-600' 
-                      : 'bg-white border-2 border-gray-300'
-                  }`}
-                  activeOpacity={0.8}
-                >
-                  <Text className={`font-kollektif text-base font-medium ${
-                    todayInputStatus.hasInput ? 'text-white' : 'text-gray-700'
-                  }`}>
-                    {todayInputStatus.hasInput ? 'Ubah Data Hari Ini' : 'Input Data Hari Ini'}
-                  </Text>
-                </TouchableOpacity>
-
-                {/* Menu Lainnya Button */}
-                <TouchableOpacity
-                  onPress={handleMenuLainnya}
-                  className="bg-white border-2 border-gray-300 rounded-full px-8 py-4 shadow-sm"
-                  activeOpacity={0.8}
-                >
-                  <Text className="text-gray-700 font-kollektif text-base font-medium">
-                    Menu Lainnya
-                  </Text>
-                </TouchableOpacity>
               </View>
+              <Image
+                source={require("../../assets/images/png/icon.png")}
+                className="w-32 h-32"
+              />
             </View>
           </View>
 
-          {/* Quick Actions */}
-          <View className="px-6 py-4">
-            <Text className="text-gray-700 font-kollektif text-lg font-bold mb-4">
-              Akses Cepat
-            </Text>
-            
-            <View className="flex-row justify-between">
-              <TouchableOpacity 
-                className="bg-white rounded-lg p-4 flex-1 mr-2 shadow-sm"
-                onPress={() => router.push('/(protected)/community' as any)}
+          {/* Treatment Progress Card */}
+          <View className="p-6 mx-4">
+            <View className="items-center">
+              <Text className="text-smar-green font-kollektif text-4xl font-bold mb-2">
+                Hari {daysSinceRegistration}
+              </Text>
+              <Text className="text-[#f44336] font-kollektif text-base font-bold mb-4">
+                Pengobatan Fase {userData?.treatment_phase || "Intensif"}
+              </Text>
+
+              {/* Points Display */}
+              <View className="bg-green-50 rounded-lg p-4 mb-4 w-full">
+                <Text className="text-smar-green font-kollektif text-lg font-bold text-center">
+                  {userData?.total_points || 0} Poin
+                </Text>
+                <Text className="text-gray-600 font-kollektif text-sm text-center">
+                  Streak: {userData?.streak_days || 0} hari
+                </Text>
+              </View>
+
+              <Image
+                source={require("../../assets/images/png/tree-main.png")}
+                className="w-72 h-56"
+              />
+
+              <Text className="text-gray-600 font-kollektif text-sm text-center mb-6">
+                Semangat menumbuhkan pohon paru-paru!
+              </Text>
+
+        
+
+              {/* Input Data Button */}
+              <TouchableOpacity
+                onPress={handleInputDataToday}
+                className={`rounded-full px-8 py-4 mb-4 shadow-sm ${
+                  todayInputStatus.hasInput
+                    ? "bg-blue-500 border-2 border-blue-600"
+                    : "bg-white border-2 border-gray-300"
+                }`}
+                activeOpacity={0.8}
               >
-                <View className="items-center">
-                  <Image 
-                    source={require('../../assets/images/png/community.png')} 
-                    className="w-6 h-6"
-                    resizeMode="contain"
-                  />
-                  <Text className="text-gray-700 font-kollektif text-sm mt-2 text-center">
-                    Komunitas
-                  </Text>
-                </View>
+                <Text
+                  className={`font-kollektif text-base font-medium ${
+                    todayInputStatus.hasInput ? "text-white" : "text-gray-700"
+                  }`}
+                >
+                  {todayInputStatus.hasInput
+                    ? "Ubah Data Hari Ini"
+                    : "Input Data Hari Ini"}
+                </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                className="bg-white rounded-lg p-4 flex-1 ml-2 shadow-sm"
-                onPress={() => router.push('/(protected)/settings' as any)}
+              {/* Menu Lainnya Button */}
+              <TouchableOpacity
+                onPress={handleMenuLainnya}
+                className="bg-white border-2 border-gray-300 rounded-full px-8 py-4 shadow-sm"
+                activeOpacity={0.8}
               >
-                <View className="items-center">
-                  <Image 
-                    source={require('../../assets/images/png/settings.png')} 
-                    className="w-6 h-6"
-                    resizeMode="contain"
-                  />
-                  <Text className="text-gray-700 font-kollektif text-sm mt-2 text-center">
-                    Pengaturan
-                  </Text>
-                </View>
+                <Text className="text-gray-700 font-kollektif text-base font-medium">
+                  Menu Lainnya
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
+          
         </ScrollView>
       </SafeAreaView>
     </>

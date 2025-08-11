@@ -52,6 +52,20 @@ export default function ProtectedLayout() {
           title: 'Pusat Konsultasi'
         }} 
       />
+      <Stack.Screen 
+        name="community" 
+        options={{ 
+          headerShown: false,
+          title: 'Komunitas TB'
+        }} 
+      />
+      <Stack.Screen 
+        name="camera-verification" 
+        options={{ 
+          headerShown: false,
+          title: 'Verifikasi Kamera'
+        }} 
+      />
       {/* TODO: Add more protected routes here */}
     </Stack>
   );

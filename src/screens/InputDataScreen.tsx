@@ -2,18 +2,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { DailyInput, DailyInputRequest } from '../lib/supabase';
+import { DailyInput, DailyInputRequest, User } from '../lib/supabase';
+import { AuthService } from '../services/authService';
 import { DailyInputService } from '../services/dailyInputService';
 
 interface SymptomData {
@@ -28,6 +28,9 @@ interface SymptomData {
 export const InputDataScreen: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [daysSinceRegistration, setDaysSinceRegistration] = useState(0);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [dataLoading, setDataLoading] = useState(true);
   const [existingData, setExistingData] = useState<DailyInput | null>(null);
   const [symptomData, setSymptomData] = useState<SymptomData>({
     symptoms: [],
@@ -80,8 +83,48 @@ export const InputDataScreen: React.FC = () => {
   const moodColors = ['#FF4444', '#FF8C00', '#FFD700', '#90EE90', '#228B22'];
 
   useEffect(() => {
-    loadExistingData();
+    loadUserData();
   }, []);
+
+  // Function to calculate days since registration
+  const calculateDaysSinceRegistration = (createdAt: string): number => {
+    const registrationDate = new Date(createdAt);
+    const currentDate = new Date();
+    const timeDifference = currentDate.getTime() - registrationDate.getTime();
+    const daysDifference = Math.floor(timeDifference / (1000 * 3600 * 24));
+    return daysDifference + 1; // +1 because first day should be day 1, not day 0
+  };
+
+  const loadUserData = async () => {
+    try {
+      setDataLoading(true);
+      
+      // Get current user
+      const user = await AuthService.getCurrentUser();
+      if (!user) {
+        console.log('No user found, redirecting to login');
+        router.replace('/(auth)/login');
+        return;
+      }
+
+      setCurrentUser(user);
+
+      // Calculate days since registration
+      if (user.created_at) {
+        const daysSince = calculateDaysSinceRegistration(user.created_at);
+        setDaysSinceRegistration(daysSince);
+        console.log('Days since registration:', daysSince);
+      }
+
+      // Load existing daily input data
+      await loadExistingData();
+      
+    } catch (error) {
+      console.error('Failed to load user data:', error);
+    } finally {
+      setDataLoading(false);
+    }
+  };
 
   const loadExistingData = async () => {
     try {
@@ -166,13 +209,7 @@ export const InputDataScreen: React.FC = () => {
     }
   };
 
-  const handleBack = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    } else {
-      router.back();
-    }
-  };
+
 
   const handleSubmit = async () => {
     try {
@@ -208,37 +245,49 @@ export const InputDataScreen: React.FC = () => {
     router.push('/(protected)/dashboard' as any);
   };
 
+  const handleBackPress = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    } else {
+      router.back();
+    }
+  };
+
   return (
     <>
-      <StatusBar barStyle="light-content" backgroundColor="#22C55E" />
-      <SafeAreaView className="flex-1 bg-[#F5F5F5]">
+      <StatusBar barStyle="light-content" backgroundColor="#2D5A4F" />
+      <SafeAreaView className="flex-1 bg-[#f1f8f5]">
         <ScrollView 
           className="flex-1" 
           contentContainerStyle={{ flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
         >
           {/* Header Section */}
-          <View className="bg-green-100 px-6 pt-8 pb-6 rounded-b-3xl">
-            <View className="flex-row justify-between items-center">
-              {/* Home Icon */}
-              <TouchableOpacity onPress={handleGoToDashboard} className="p-2">
-                <Ionicons name="home" size={24} color="#2D5A4F" />
-              </TouchableOpacity>
-              
-              {/* Day Counter */}
-              <View className="bg-[#2D5A4F] rounded-lg px-4 py-2 border border-purple-500">
-                <Text className="text-white font-kollektif text-lg font-bold">
-                  HARI {existingData?.input_date ? new Date(existingData.input_date).getDate() : new Date().getDate()}
+          <TouchableOpacity
+            onPress={handleBackPress}
+            className="top-10 left-6 z-10"
+            activeOpacity={0.8}
+          >
+            <View className="">
+              <Text className="text-black font-bold font-kollektif text-2xl">
+                ←
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <View className="px-6 pt-6 pb-4 relative">
+            {/* Header Content */}
+            <View className="flex-row items-center justify-between mt-6 px-4">
+              <View className="bg-smar-green p-4 max-w-48 rounded-3xl mr-10 flex-1">
+                <Text className="text-white font-kollektif text-4xl font-bold text-center">
+                  Hari {dataLoading ? '...' : daysSinceRegistration}
                 </Text>
               </View>
-              
-              {/* Icons */}
-              <View className="flex-row items-center">
-                <Image 
-                  source={require('../../assets/images/png/icon.png')} 
-                  className="w-8 h-8"
-                  resizeMode="contain"
-                />
+              <View className="items-center">
+                <Ionicons name="calendar" size={64} color="#666" />
+                <View className="absolute top-0 right-0 w-4 h-4 bg-red-500 rounded-full items-center justify-center">
+                  <Ionicons name="checkmark" size={20} color="white" />
+                </View>
               </View>
             </View>
           </View>
@@ -248,7 +297,7 @@ export const InputDataScreen: React.FC = () => {
             {currentPage === 1 ? (
               // Page 1: Symptoms
               <View className="flex-1">
-                <Text className="text-[#2D5A4F] font-kollektif text-lg text-center mb-8">
+                <Text className="text-[#2D5A4F] font-kollektif text-3xl font-bold text-center mb-8">
                   Gejala yang dialami kemarin
                 </Text>
 
@@ -257,9 +306,9 @@ export const InputDataScreen: React.FC = () => {
                     <TouchableOpacity
                       key={index}
                       onPress={() => handleSymptomToggle(symptom)}
-                      className={`p-4 rounded-lg border-2 mb-4 ${
+                      className={`p-4 border-2 mb-2 rounded-full ${
                         symptomData.symptoms.includes(symptom)
-                          ? 'bg-pink-200 border-[#2D5A4F]'
+                          ? 'bg-pink-300 border-[#2D5A4F]'
                           : 'bg-pink-100 border-[#2D5A4F]'
                       }`}
                       activeOpacity={0.7}
@@ -271,7 +320,7 @@ export const InputDataScreen: React.FC = () => {
                   ))}
                 </View>
 
-                <View className="mt-8">
+                <View className="mt-8 mb-4">
                   <TouchableOpacity
                     onPress={handleNext}
                     className="bg-[#2D5A4F] py-3 px-6 rounded-lg"
@@ -286,7 +335,7 @@ export const InputDataScreen: React.FC = () => {
             ) : currentPage === 2 ? (
               // Page 2: Cough Description
               <View className="flex-1">
-                <Text className="text-[#2D5A4F] font-kollektif text-lg text-center mb-8">
+                <Text className="text-[#2D5A4F] font-kollektif text-3xl font-bold text-center mb-8">
                   Deskripsi batuk yang dialami
                 </Text>
 
@@ -295,9 +344,9 @@ export const InputDataScreen: React.FC = () => {
                     <TouchableOpacity
                       key={index}
                       onPress={() => handleCoughDescriptionToggle(description)}
-                      className={`p-4 rounded-lg border-2 mb-4 ${
+                        className={`p-4 border-2 mb-2 rounded-full ${
                         symptomData.coughDescription.includes(description)
-                          ? 'bg-pink-200 border-[#2D5A4F]'
+                          ? 'bg-pink-300 border-[#2D5A4F]'
                           : 'bg-pink-100 border-[#2D5A4F]'
                       }`}
                       activeOpacity={0.7}
@@ -311,7 +360,7 @@ export const InputDataScreen: React.FC = () => {
 
                 <View className="mt-8">
                   <TouchableOpacity
-                    onPress={handleBack}
+                    onPress={() => setCurrentPage(currentPage - 1)}
                     className="bg-gray-300 py-3 px-6 rounded-lg mb-3"
                     activeOpacity={0.8}
                   >
@@ -334,16 +383,16 @@ export const InputDataScreen: React.FC = () => {
             ) : currentPage === 3 ? (
               // Page 3: Activities
               <View className="flex-1">
-                <Text className="text-[#2D5A4F] font-kollektif text-lg text-center mb-8">
+                <Text className="text-[#2D5A4F] font-kollektif text-3xl font-bold text-center mb-8">
                   Kegiatan yang dilakukan hari ini
                 </Text>
 
                 <View>
                   {activitiesOptions.map((activity, index) => (
-                    <View key={index} className="flex-row items-center mb-4">
+                    <View key={index} className="flex-row items-center mb-2">
                       <TouchableOpacity
                         onPress={() => handleActivityToggle(activity)}
-                        className={`w-6 h-6 rounded-full border-2 items-center justify-center mr-3 ${
+                        className={`w-6 h-6 rounded-full border-2 items-center justify-center mr-2 ${
                           symptomData.activities.includes(activity)
                             ? 'bg-pink-300 border-[#2D5A4F]'
                             : 'bg-white border-[#2D5A4F]'
@@ -384,7 +433,7 @@ export const InputDataScreen: React.FC = () => {
 
                 <View className="mt-8">
                   <TouchableOpacity
-                    onPress={handleBack}
+                    onPress={() => setCurrentPage(currentPage - 1)}
                     className="bg-gray-300 py-3 px-6 rounded-lg mb-3"
                     activeOpacity={0.8}
                   >
@@ -472,9 +521,9 @@ export const InputDataScreen: React.FC = () => {
                   </View>
                 </View>
 
-                <View className="mt-8">
+                <View className="mt-8 mb-4">
                   <TouchableOpacity
-                    onPress={handleBack}
+                    onPress={() => setCurrentPage(currentPage - 1)}
                     className="bg-gray-300 py-3 px-6 rounded-lg mb-3"
                     activeOpacity={0.8}
                   >

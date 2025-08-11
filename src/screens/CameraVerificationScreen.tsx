@@ -1,9 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import * as MediaLibrary from 'expo-media-library';
 
 import { router } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   SafeAreaView,
@@ -13,6 +12,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { User } from '../lib/supabase';
+import { AuthService } from '../services/authService';
 
 interface CameraVerificationProps {
   onVerificationSuccess: () => void;
@@ -24,62 +25,46 @@ const CameraVerification: React.FC<CameraVerificationProps> = ({
   onVerificationFailed
 }) => {
   const [permission, requestPermission] = useCameraPermissions();
-  const [mediaPermission, setMediaPermission] = useState<boolean | null>(null);
   const [facing, setFacing] = useState<'front' | 'back'>('front');
   const [flash, setFlash] = useState<'off' | 'on'>('off');
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [photoTaken, setPhotoTaken] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationComplete, setVerificationComplete] = useState(false);
   const cameraRef = useRef<CameraView>(null);
 
-  // Request media library permissions
-  React.useEffect(() => {
-    (async () => {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      setMediaPermission(status === 'granted');
-    })();
-  }, []);
-
-  const handleCapture = async () => {
-    if (!cameraRef.current || isCapturing) return;
+  const handleVerification = async () => {
+    if (isVerifying) return;
 
     try {
-      setIsCapturing(true);
+      setIsVerifying(true);
       
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
-        base64: false,
-      });
-
-      if (photo) {
-        // Save to media library
-        await MediaLibrary.saveToLibraryAsync(photo.uri);
-        
-        setPhotoTaken(true);
-        
-        // Show success feedback
-        Alert.alert(
-          'Foto Berhasil Diambil',
-          'Foto verifikasi telah tersimpan. Verifikasi berhasil!',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                onVerificationSuccess();
-              }
+      // Simulate verification process with a short delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      setVerificationComplete(true);
+      
+      // Show success feedback
+      Alert.alert(
+        'Verifikasi Berhasil',
+        'Verifikasi wajah berhasil dilakukan!',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              onVerificationSuccess();
             }
-          ]
-        );
-      }
+          }
+        ]
+      );
     } catch (error) {
-      console.error('Error taking photo:', error);
+      console.error('Error during verification:', error);
       Alert.alert(
         'Error',
-        'Gagal mengambil foto. Silakan coba lagi.',
+        'Gagal melakukan verifikasi. Silakan coba lagi.',
         [{ text: 'OK' }]
       );
       onVerificationFailed();
     } finally {
-      setIsCapturing(false);
+      setIsVerifying(false);
     }
   };
 
@@ -162,29 +147,29 @@ const CameraVerification: React.FC<CameraVerificationProps> = ({
             </View>
           </View>
 
-          {/* Capture Button */}
+          {/* Verification Button */}
           <View className="absolute bottom-8 left-0 right-0 items-center">
             <TouchableOpacity
-              onPress={handleCapture}
-              disabled={isCapturing}
+              onPress={handleVerification}
+              disabled={isVerifying}
               className={`w-16 h-16 rounded-full border-4 border-white items-center justify-center ${
-                isCapturing ? 'bg-green-500' : 'bg-transparent'
+                isVerifying ? 'bg-blue-500' : 'bg-transparent'
               }`}
             >
-              {isCapturing ? (
-                <Ionicons name="checkmark" size={32} color="white" />
+              {isVerifying ? (
+                <Ionicons name="eye" size={32} color="white" />
               ) : (
-                <View className="w-12 h-12 bg-white rounded-full" />
+                <Ionicons name="scan" size={32} color="white" />
               )}
             </TouchableOpacity>
             
             <Text className="text-white font-kollektif text-xs mt-2 bg-black/50 px-2 py-1 rounded">
-              {isCapturing ? 'Mengambil foto...' : 'Tekan untuk foto'}
+              {isVerifying ? 'Memverifikasi...' : 'Tekan untuk verifikasi'}
             </Text>
           </View>
 
           {/* Success Overlay */}
-          {photoTaken && (
+          {verificationComplete && (
             <View className="absolute inset-0 bg-green-500/20 items-center justify-center">
               <View className="bg-green-500 rounded-full p-4">
                 <Ionicons name="checkmark" size={48} color="white" />
@@ -222,8 +207,51 @@ const VerificationStatus: React.FC<{
 };
 
 export const CameraVerificationScreen: React.FC = () => {
-  const [currentDay, setCurrentDay] = useState(30);
+  const [daysSinceRegistration, setDaysSinceRegistration] = useState(0);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isVerified, setIsVerified] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  // Function to calculate days since registration
+  const calculateDaysSinceRegistration = (createdAt: string): number => {
+    const registrationDate = new Date(createdAt);
+    const currentDate = new Date();
+    const timeDifference = currentDate.getTime() - registrationDate.getTime();
+    const daysDifference = Math.floor(timeDifference / (1000 * 3600 * 24));
+    return daysDifference + 1; // +1 because first day should be day 1, not day 0
+  };
+
+  const loadUserData = async () => {
+    try {
+      setLoading(true);
+      
+      // Get current user
+      const user = await AuthService.getCurrentUser();
+      if (!user) {
+        console.log('No user found, redirecting to login');
+        router.replace('/(auth)/login');
+        return;
+      }
+
+      setCurrentUser(user);
+
+      // Calculate days since registration
+      if (user.created_at) {
+        const daysSince = calculateDaysSinceRegistration(user.created_at);
+        setDaysSinceRegistration(daysSince);
+        console.log('Days since registration:', daysSince);
+      }
+      
+    } catch (error) {
+      console.error('Failed to load user data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleVerificationSuccess = () => {
     setIsVerified(true);
@@ -245,35 +273,47 @@ export const CameraVerificationScreen: React.FC = () => {
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor="#2D5A4F" />
-      <SafeAreaView className="flex-1 bg-[#F5F5F5]">
+      <SafeAreaView className="flex-1 bg-[#f1f8f5]">
         <ScrollView 
           className="flex-1" 
           contentContainerStyle={{ flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
         >
           {/* Header Section */}
-          <View className="bg-green-100 px-6 pt-8 pb-6 rounded-b-3xl">
-            <View className="flex-row justify-between items-center">
-              {/* Day Counter */}
-              <View className="bg-[#2D5A4F] rounded-lg px-4 py-2">
-                <Text className="text-white font-kollektif text-lg font-bold">
-                  HARI {currentDay}
-                </Text>
-              </View>
-              
-              {/* Calendar Icon */}
-              <View className="items-center">
-                <Ionicons name="calendar" size={32} color="#666" />
-                <View className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full items-center justify-center">
-                  <Ionicons name="checkmark" size={12} color="white" />
+          <TouchableOpacity
+        onPress={handleBackPress}
+        className="top-10 left-6 z-10"
+        activeOpacity={0.8}
+      >
+        <View className="">
+          <Text className="text-black font-bold font-kollektif text-2xl">
+            ←
+          </Text>
+        </View>
+      </TouchableOpacity>
+
+      <View className="px-6 pt-6 pb-4 relative">
+        {/* Back Button */}
+
+        {/* Header Content */}
+        <View className="flex-row items-center justify-between mt-6 px-4">
+          <View className="bg-smar-green p-4 max-w-48 rounded-3xl mr-10 flex-1">
+            <Text className="text-white font-kollektif text-4xl font-bold text-center">
+            Hari {loading ? '...' : daysSinceRegistration}
+            </Text>
+          </View>
+          <View className="items-center">
+                <Ionicons name="calendar" size={64} color="#666" />
+                <View className="absolute top-0 right-0 w-4 h-4 bg-red-500 rounded-full items-center justify-center">
+                  <Ionicons name="checkmark" size={20} color="white" />
                 </View>
               </View>
-            </View>
-          </View>
+        </View>
+      </View>
 
           {/* Title */}
-          <View className="px-6 py-4">
-            <Text className="text-gray-800 font-kollektif text-xl font-bold text-center">
+          <View className="px-6 py-2">
+            <Text className="text-gray-800 font-kollektif text-2xl font-bold text-center">
               Input Data{'\n'}Minum Obat
             </Text>
           </View>
@@ -289,7 +329,7 @@ export const CameraVerificationScreen: React.FC = () => {
           {/* Instructions */}
           <View className="px-6 py-4">
             <Text className="text-gray-600 font-kollektif text-sm text-center leading-5">
-              Posisikan wajah Anda di dalam lingkaran dan tekan tombol untuk mengambil foto verifikasi. Pastikan pencahayaan cukup dan wajah terlihat jelas.
+              Posisikan wajah Anda di dalam lingkaran dan tekan tombol untuk melakukan verifikasi. Pastikan pencahayaan cukup dan wajah terlihat jelas.
             </Text>
           </View>
 
