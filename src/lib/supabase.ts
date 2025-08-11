@@ -36,9 +36,9 @@ supabase.auth.onAuthStateChange((event, session) => {
 
 export interface User {
   id: string;
-  email: string;
+  phone: string; // Changed from email to phone as primary identifier
   full_name: string;
-  phone?: string;
+  nickname?: string;
   date_of_birth?: string;
   gender?: string;
   national_id?: string;
@@ -50,7 +50,6 @@ export interface User {
   };
   created_at: string;
   updated_at: string;
-  is_active: boolean;
 }
 
 export interface UserProfile {
@@ -111,21 +110,9 @@ export interface PointTransaction {
   created_at: string;
 }
 
-export interface Achievement {
-  id: string;
-  name: string;
-  description?: string;
-  points_required: number;
-  icon_name?: string;
-  created_at: string;
-}
+// Achievement interface removed - achievement system disabled
 
-export interface UserAchievement {
-  id: string;
-  user_id: string;
-  achievement_id: string;
-  earned_at: string;
-}
+// UserAchievement interface removed - achievement system disabled
 
 export interface Reminder {
   id: string;
@@ -205,15 +192,7 @@ export interface UserDashboard {
   medication_days: number;
 }
 
-export interface UserAchievementView {
-  user_id?: string;
-  achievement_name: string;
-  description?: string;
-  points_required: number;
-  icon_name?: string;
-  earned_at?: string;
-  is_earned: boolean;
-}
+// UserAchievementView interface removed - achievement system disabled
 
 export interface CommunityPostView {
   id: string;
@@ -233,12 +212,12 @@ export interface CommunityPostView {
 // ============================================================================
 
 export interface SignupRequest {
-  email: string;
+  phone: string; // Changed from email to phone as primary identifier
   password: string;
   full_name: string;
+  nickname?: string;
   date_of_birth?: string;
   treatment_start_date: string;
-  phone?: string;
   gender?: string;
   national_id?: string;
   health_facility?: string;
@@ -297,12 +276,7 @@ export interface PointCalculationResult {
   description: string;
 }
 
-export interface AchievementProgress {
-  achievement: Achievement;
-  is_earned: boolean;
-  progress_percentage: number;
-  points_needed: number;
-}
+// AchievementProgress interface removed - achievement system disabled
 
 // ============================================================================
 // ERROR TYPES

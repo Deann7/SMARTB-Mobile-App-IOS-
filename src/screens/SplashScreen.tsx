@@ -1,17 +1,18 @@
 import { router } from 'expo-router';
 import React, { useEffect } from 'react';
 import {
-    SafeAreaView,
-    StatusBar,
-    Text,
-    View,
+  Image,
+  SafeAreaView,
+  StatusBar,
+  Text,
+  View,
 } from 'react-native';
 
 export const SplashScreen: React.FC = () => {
   useEffect(() => {
     // Auto-navigate to auth after 3 seconds (extended for testing)
     const timer = setTimeout(() => {
-      router.replace('/(auth)/register-step-1' as any);
+      router.replace('/(auth)/login' as any);
     }, 3000);
 
     return () => clearTimeout(timer);
@@ -22,38 +23,24 @@ export const SplashScreen: React.FC = () => {
       <StatusBar barStyle="light-content" backgroundColor="#22C55E" />
       <SafeAreaView className="flex-1 bg-green-500">
         <View className="flex-1 justify-center items-center px-6">
-          {/* Tailwind Test */}
-          <View className="bg-white p-8 rounded-lg shadow-lg mb-8">
-            <Text className="text-2xl font-bold text-green-600 text-center mb-4">
-              SMARTB
-            </Text>
-            <Text className="text-gray-600 text-center">
-              Testing Tailwind CSS
-            </Text>
-          </View>
-          
-          {/* Simple Animation Area */}
+          {/* App Icon */}
           <View className="items-center mb-8">
-            <View className="w-16 h-16 bg-white rounded-full items-center justify-center mb-4">
-              <Text className="text-2xl">🫁</Text>
-            </View>
-            <Text className="text-white text-lg font-bold text-center">
-              Sistem Monitoring TB
+            <Image 
+              source={require('../../assets/images/png/icon.png')}
+              className="w-52 h-52 mb-2"
+              resizeMode="contain"
+            />
+            
+            {/* App Title */}
+            <Text className="text-6xl font-kollektif font-bold text-white mb-4">
+              SMAR-TB
             </Text>
-            <Text className="text-white text-sm text-center mt-2 opacity-90">
-              Membantu pemantauan pengobatan tuberkulosis
+            
+            {/* Subtitle */}
+            <Text className="text-white font-kollektif text-lg text-center opacity-90">
+              One Stop TB Solution
             </Text>
           </View>
-            
-          {/* App Title */}
-          <Text className="text-6xl font-kollektif font-bold text-white mb-4">
-            SMAR-TB
-          </Text>
-          
-          {/* Subtitle */}
-          <Text className="text-white font-kollektif text-lg text-center opacity-90">
-            Smart Tuberculosis Management
-          </Text>
         </View>
 
         {/* Loading indicator or version */}

@@ -8,7 +8,13 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:e2e": "detox test -c ios.sim.debug",
+    "test:e2e:android": "detox test -c android.emu.debug",
+    "test:ci": "jest --ci --coverage --watchAll=false"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",

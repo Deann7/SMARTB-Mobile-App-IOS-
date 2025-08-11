@@ -3,14 +3,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { AuthService } from '../services/authService';
 
 // TB Type options
@@ -165,16 +166,18 @@ export const RegisterStep2Screen: React.FC = () => {
       // Use password from step 1 data
       const password = step1Data.password || `${step1Data.email.split('@')[0]}${step1Data.nationalId.slice(-4)}`;
 
-      // Format dates
-      const dateOfBirth = `${step1Data.dateOfBirth.year}-${step1Data.dateOfBirth.month.padStart(2, '0')}-${step1Data.dateOfBirth.day.padStart(2, '0')}`;
-      const diagnosisDate = `${formData.diagnosisDate.year}-${formData.diagnosisDate.month.padStart(2, '0')}-${formData.diagnosisDate.day.padStart(2, '0')}`;
+      // Format dates with proper validation
+      const dateOfBirth = `${step1Data.dateOfBirth.year}-${String(step1Data.dateOfBirth.month).padStart(2, '0')}-${String(step1Data.dateOfBirth.day).padStart(2, '0')}`;
+      const diagnosisDate = `${formData.diagnosisDate.year}-${String(formData.diagnosisDate.month).padStart(2, '0')}-${String(formData.diagnosisDate.day).padStart(2, '0')}`;
+      
+      console.log('Formatted dates:', { dateOfBirth, diagnosisDate });
 
-      // Prepare user data for registration
+      // Prepare user data for registration (phone-only)
       const userData = {
-        email: step1Data.email,
+        phone: step1Data.phoneNumber, // Changed from email to phone as primary identifier
         password: password,
         full_name: step1Data.fullName,
-        phone: step1Data.phoneNumber,
+        nickname: step1Data.nickname,
         date_of_birth: dateOfBirth,
         gender: step1Data.gender,
         national_id: step1Data.nationalId,
@@ -187,48 +190,82 @@ export const RegisterStep2Screen: React.FC = () => {
       };
 
       console.log('Attempting registration with data:', userData);
+      console.log('Medical data being sent:', {
+        health_facility: userData.health_facility,
+        doctor_name: userData.doctor_name,
+        tb_type: userData.tb_type,
+        medication_combination: userData.medication_combination,
+        comorbidities: userData.comorbidities,
+      });
 
-      // Call the registration and sign-in service
-      const result = await AuthService.signUpAndSignIn(userData);
+      // Call the registration service (without auto sign-in)
+      const result = await AuthService.signUp(userData);
       
-      console.log('Registration and sign-in result:', result);
+      console.log('Registration result:', result);
       
-      // Verify session was created
-      const session = await AuthService.verifySession(5, 1000);
-      
-      if (session || result.user || result.session) {
+      if (result && result.user) {
         // Clear stored step 1 data
         await AsyncStorage.removeItem('registerStep1Data');
         
-        // Show success message
-        Alert.alert(
-          'Registrasi Berhasil!',
-          `Selamat datang di SMARTB!\n\nEmail: ${step1Data.email}\nPassword: ${password}\n\nHarap simpan informasi login Anda.`,
-          [
+        // Show elegant success toast first
+        Toast.show({
+          type: 'success',
+          text1: '🎉 Registrasi Berhasil!',
+          text2: `Akun dengan nomor ${step1Data.phoneNumber} telah dibuat`,
+          position: 'top',
+          visibilityTime: 3000,
+        });
+        
+        // Wait a moment for toast to be visible, then show alert
+        setTimeout(() => {
+          Alert.alert(
+            '✅ Akun Berhasil Dibuat',
+            `Selamat! Registrasi Anda telah berhasil.\n\n📱 Nomor Telepon: ${step1Data.phoneNumber}\n🔐 Password: ${password}\n\nSilakan login menggunakan kredensial Anda untuk mengakses aplikasi SMARTB.`,
+            [
+              {
+                text: 'Login Sekarang',
+                style: 'default',
+                onPress: () => {
+                  // Navigate to login screen
+                  router.replace('/(auth)/login' as any);
+                },
+              },
+            ],
             {
-              text: 'OK',
-              onPress: () => router.replace('/(protected)/dashboard' as any),
-            },
-          ]
-        );
+              cancelable: false // Prevent dismissing by tapping outside
+            }
+          );
+        }, 1000);
       } else {
-        throw new Error('Registration failed - no user or session returned');
+        throw new Error('Registration failed - no user returned');
       }
     } catch (error: any) {
       console.error('Registration error:', error);
       let errorMessage = 'Gagal mendaftar. Silakan coba lagi.';
       
       if (error?.message) {
-        if (error.message.includes('User already registered')) {
-          errorMessage = 'Email sudah terdaftar. Silakan login atau gunakan email lain.';
-        } else if (error.message.includes('Invalid email')) {
-          errorMessage = 'Format email tidak valid.';
+        if (error.message.includes('Nomor telepon sudah terdaftar')) {
+          errorMessage = 'Nomor telepon sudah terdaftar. Silakan login atau gunakan nomor telepon lain.';
+        } else if (error.message.includes('Gagal membuat akun')) {
+          errorMessage = 'Gagal membuat akun. Silakan periksa data Anda dan coba lagi.';
+        } else if (error.message.includes('Gagal membuat profil')) {
+          errorMessage = 'Akun berhasil dibuat tetapi gagal menyimpan profil. Silakan hubungi support.';
         } else {
           errorMessage = error.message;
         }
       }
       
-      Alert.alert('Error', errorMessage);
+      // Show error toast
+      Toast.show({
+        type: 'error',
+        text1: 'Registrasi Gagal',
+        text2: errorMessage,
+        position: 'top',
+        visibilityTime: 4000,
+      });
+      
+      // Also show alert for important errors
+      Alert.alert('Registrasi Gagal', errorMessage);
     } finally {
       setLoading(false);
     }

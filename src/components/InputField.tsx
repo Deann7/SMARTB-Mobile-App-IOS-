@@ -38,8 +38,8 @@ export const InputField: React.FC<InputFieldProps> = ({
         </Text>
       )}
       <View
-        className={`flex-row items-center bg-white border rounded-xl px-4 py-4 ${
-          isFocused ? 'border-smar-green' : 'border-gray-200'
+        className={`flex-row items-center bg-white border rounded-full px-3 py-3 ${
+          isFocused ? 'border-pink-300' : 'border-pink-200'
         } ${error ? 'border-red-500' : ''} ${!editable ? 'opacity-50' : ''}`}
       >
         <TextInput

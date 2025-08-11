@@ -16,8 +16,8 @@ export const Button: React.FC<ButtonProps> = ({
   disabled = false,
   loading = false,
 }) => {
-  const baseClasses = "py-4 px-6 rounded-xl flex-row items-center justify-center";
-  const primaryClasses = "bg-smar-accent";
+  const baseClasses = "py-4 px-6 rounded-full flex-row items-center justify-center";
+  const primaryClasses = "bg-red-400 rounded-full";
   const secondaryClasses = "bg-smar-green";
   const disabledClasses = "opacity-50";
 

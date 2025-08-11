@@ -1,47 +1,58 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    RefreshControl,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { UserDashboard } from '../lib/supabase';
+import { UserDashboard, supabase } from '../lib/supabase';
 import { AuthService } from '../services/authService';
 import { DailyInputService } from '../services/dailyInputService';
-import { RewardService } from '../services/rewardService';
 
 export const DashboardScreen: React.FC = () => {
   const [userData, setUserData] = useState<UserDashboard | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [todayInputStatus, setTodayInputStatus] = useState({
     hasInput: false,
     isComplete: false,
     pointsEarned: 0,
   });
+  const [daysSinceRegistration, setDaysSinceRegistration] = useState<number>(0);
 
   useEffect(() => {
     loadDashboardData();
   }, []);
 
+  // Auto-refresh dashboard when screen is focused (e.g., returning from input screen)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Dashboard screen focused, refreshing data...');
+      loadDashboardData();
+    }, [])
+  );
+
+  // Function to calculate days since registration
+  const calculateDaysSinceRegistration = (createdAt: string): number => {
+    const registrationDate = new Date(createdAt);
+    const currentDate = new Date();
+    const timeDifference = currentDate.getTime() - registrationDate.getTime();
+    const daysDifference = Math.floor(timeDifference / (1000 * 3600 * 24));
+    return daysDifference + 1; // +1 because first day should be day 1, not day 0
+  };
+
   const loadDashboardData = async () => {
     try {
       setLoading(true);
       
-      // Check and refresh session if needed
-      const session = await AuthService.checkAndRefreshSession();
-      if (!session) {
-        console.log('No valid session found, redirecting to login');
-        router.replace('/(auth)/login');
-        return;
-      }
-
       // Get current user
       const user = await AuthService.getCurrentUser();
       if (!user) {
@@ -50,24 +61,127 @@ export const DashboardScreen: React.FC = () => {
         return;
       }
 
-      // Ensure user profile exists (create if it doesn't)
-      try {
-        await AuthService.ensureUserProfile(user.id, new Date().toISOString().split('T')[0]);
-      } catch (profileError) {
-        console.error('Failed to ensure user profile:', profileError);
-        // Continue anyway - the user is authenticated
+      console.log('Loading dashboard for user:', user.id);
+
+      // Store current user data
+      setCurrentUser(user);
+
+      // Calculate days since registration
+      if (user.created_at) {
+        const daysSince = calculateDaysSinceRegistration(user.created_at);
+        setDaysSinceRegistration(daysSince);
+        console.log('Days since registration:', daysSince);
       }
 
-      // Get user dashboard data
-      const dashboardData = await AuthService.getUserDashboard(user.id);
-      setUserData(dashboardData);
+      // Get treatment progress information
+      const treatmentProgress = await DailyInputService.getTreatmentProgress();
+      const currentDay = treatmentProgress.currentDay;
+      const treatmentPhase = treatmentProgress.treatmentPhase;
+
+      // Get user dashboard data using direct table access (more reliable)
+      try {
+        console.log('Trying to get user dashboard from user_dashboard table...');
+        
+        // Try to get from user_dashboard table first
+        const { data: dashboardData, error: dashboardError } = await supabase
+          .from('user_dashboard')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (dashboardError) {
+          console.log('user_dashboard table access failed:', dashboardError.message);
+          console.log('User dashboard not found, creating...');
+          
+          // Try to create dashboard entry
+          try {
+            const { data: newDashboard, error: createError } = await supabase
+              .from('user_dashboard')
+              .insert({
+                user_id: user.id,
+                total_points: 0,
+                current_streak: 0,
+                longest_streak: 0
+              })
+              .select()
+              .single();
+            
+            if (createError) {
+              console.log('Failed to create dashboard, using default:', createError.message);
+              throw createError;
+            } else {
+              console.log('Dashboard created successfully:', newDashboard);
+              const formattedDashboard: UserDashboard = {
+                user_id: newDashboard.user_id,
+                full_name: user.full_name || 'User',
+                current_day: currentDay,
+                total_points: newDashboard.total_points || 0,
+                streak_days: newDashboard.current_streak || 0,
+                total_inputs: 0,
+                complete_inputs: 0,
+                medication_days: 0,
+                treatment_phase: treatmentPhase,
+                last_data_input_date: undefined,
+              };
+              setUserData(formattedDashboard);
+            }
+          } catch (createError) {
+            console.log('Create dashboard failed, using AuthService fallback');
+            const fallbackData = await AuthService.getUserDashboard(user.id);
+            // Update fallback data with calculated current day
+            fallbackData.current_day = currentDay;
+            fallbackData.treatment_phase = treatmentPhase;
+            setUserData(fallbackData);
+          }
+        } else {
+          console.log('Dashboard data loaded from user_dashboard table:', dashboardData);
+          const formattedDashboard: UserDashboard = {
+            user_id: dashboardData.user_id,
+            full_name: user.full_name || 'User',
+            current_day: currentDay, // Calculated from treatment_start_date
+            total_points: dashboardData.total_points || 0,
+            streak_days: dashboardData.current_streak || 0,
+            total_inputs: 0,
+            complete_inputs: 0,
+            medication_days: 0,
+            treatment_phase: treatmentPhase,
+            last_data_input_date: undefined,
+          };
+          setUserData(formattedDashboard);
+        }
+      } catch (dashboardError) {
+        console.error('Get user dashboard error:', dashboardError);
+        console.log('All dashboard methods failed, using default values');
+        // Create default dashboard data if everything fails
+        const defaultDashboard: UserDashboard = {
+          user_id: user.id,
+          full_name: user.full_name || 'User',
+          current_day: currentDay,
+          total_points: 0,
+          streak_days: 0,
+          total_inputs: 0,
+          complete_inputs: 0,
+          medication_days: 0,
+          treatment_phase: treatmentPhase,
+          last_data_input_date: undefined,
+        };
+        setUserData(defaultDashboard);
+      }
 
       // Get today's input status
-      const todayStatus = await DailyInputService.getTodayInputStatus();
-      setTodayInputStatus(todayStatus);
-
-      // Check for new achievements
-      await RewardService.checkAndAwardAchievements();
+      try {
+        const todayStatus = await DailyInputService.getTodayInputStatus();
+        setTodayInputStatus(todayStatus);
+      } catch (inputError) {
+        console.error('Get today input status error:', inputError);
+        // Set default status
+        setTodayInputStatus({
+          hasInput: false,
+          isComplete: false,
+          pointsEarned: 0,
+        });
+      }
+        
 
     } catch (error) {
       console.error('Load dashboard data error:', error);
@@ -88,7 +202,7 @@ export const DashboardScreen: React.FC = () => {
         ]
       );
     } else {
-      router.push('/(protected)/input-data' as any);
+      router.push('/(protected)/camera-verification' as any);
     }
   };
 
@@ -129,10 +243,10 @@ export const DashboardScreen: React.FC = () => {
             {/* Welcome message */}
             <View className="bg-smar-green rounded-lg p-4 mb-6">
               <Text className="text-white font-kollektif text-lg font-bold text-center">
-                Selamat datang kembali!
+                Selamat datang kembali
               </Text>
               <Text className="text-white font-kollektif text-lg font-bold text-center">
-                {userData?.full_name || 'Pengguna'}
+                {currentUser?.nickname || currentUser?.full_name || 'Pengguna'}
               </Text>
             </View>
 
@@ -140,10 +254,10 @@ export const DashboardScreen: React.FC = () => {
             <View className="bg-white rounded-3xl p-6 mx-4 shadow-lg">
               <View className="items-center">
                 <Text className="text-smar-green font-kollektif text-4xl font-bold mb-2">
-                  Hari {userData?.current_day || 0}
+                  Hari {daysSinceRegistration}
                 </Text>
                 <Text className="text-gray-600 font-kollektif text-base mb-4">
-                  {userData?.treatment_phase || 'Pengobatan Fase Intensif'}
+                  Pengobatan Fase {userData?.treatment_phase || 'Intensif'}
                 </Text>
                 
                 {/* Points Display */}
@@ -156,33 +270,6 @@ export const DashboardScreen: React.FC = () => {
                   </Text>
                 </View>
 
-                {/* Progress Stats */}
-                <View className="flex-row justify-between w-full mb-6">
-                  <View className="items-center flex-1">
-                    <Text className="text-smar-green font-kollektif text-2xl font-bold">
-                      {userData?.complete_inputs || 0}
-                    </Text>
-                    <Text className="text-gray-600 font-kollektif text-xs text-center">
-                      Input Lengkap
-                    </Text>
-                  </View>
-                  <View className="items-center flex-1">
-                    <Text className="text-smar-green font-kollektif text-2xl font-bold">
-                      {userData?.medication_days || 0}
-                    </Text>
-                    <Text className="text-gray-600 font-kollektif text-xs text-center">
-                      Hari Minum Obat
-                    </Text>
-                  </View>
-                  <View className="items-center flex-1">
-                    <Text className="text-smar-green font-kollektif text-2xl font-bold">
-                      {userData?.total_inputs || 0}
-                    </Text>
-                    <Text className="text-gray-600 font-kollektif text-xs text-center">
-                      Total Input
-                    </Text>
-                  </View>
-                </View>
 
                 {/* Lungs illustration area */}
                 <View className="h-32 w-32 bg-gray-100 rounded-full items-center justify-center mb-6">
@@ -190,7 +277,7 @@ export const DashboardScreen: React.FC = () => {
                 </View>
 
                 <Text className="text-gray-600 font-kollektif text-sm text-center mb-6">
-                  Semangat menuntaskan pohon penyembuhan Anda!
+                  Semangat menumbuhkan pohon paru-paru!
                 </Text>
 
                 {/* Today's Status */}
@@ -245,7 +332,11 @@ export const DashboardScreen: React.FC = () => {
                 onPress={() => router.push('/(protected)/community' as any)}
               >
                 <View className="items-center">
-                  <Ionicons name="people" size={24} color="#22C55E" />
+                  <Image 
+                    source={require('../../assets/images/png/community.png')} 
+                    className="w-6 h-6"
+                    resizeMode="contain"
+                  />
                   <Text className="text-gray-700 font-kollektif text-sm mt-2 text-center">
                     Komunitas
                   </Text>
@@ -257,7 +348,11 @@ export const DashboardScreen: React.FC = () => {
                 onPress={() => router.push('/(protected)/settings' as any)}
               >
                 <View className="items-center">
-                  <Ionicons name="settings" size={24} color="#22C55E" />
+                  <Image 
+                    source={require('../../assets/images/png/settings.png')} 
+                    className="w-6 h-6"
+                    resizeMode="contain"
+                  />
                   <Text className="text-gray-700 font-kollektif text-sm mt-2 text-center">
                     Pengaturan
                   </Text>

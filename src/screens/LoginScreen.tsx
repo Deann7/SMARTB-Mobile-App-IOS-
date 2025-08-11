@@ -1,26 +1,27 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
+    ActivityIndicator,
+    Image,
     SafeAreaView,
     ScrollView,
     StatusBar,
     Text,
     TouchableOpacity,
-    View,
-    ActivityIndicator,
+    View
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { Button, InputField } from '../components';
 import { AuthService } from '../services/authService';
 
 interface LoginFormData {
-  email: string;
+  phone: string; // Changed from email to phone
   password: string;
 }
 
 export const LoginScreen: React.FC = () => {
   const [formData, setFormData] = useState<LoginFormData>({
-    email: '',
+    phone: '',
     password: '',
   });
   const [errors, setErrors] = useState<Partial<LoginFormData>>({});
@@ -37,10 +38,10 @@ export const LoginScreen: React.FC = () => {
   const validateForm = (): boolean => {
     const newErrors: Partial<LoginFormData> = {};
 
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email atau nomor telepon harus diisi';
-    } else if (!formData.email.includes('@') && formData.email.length < 10) {
-      newErrors.email = 'Format email atau nomor telepon tidak valid';
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Nomor telepon harus diisi';
+    } else if (formData.phone.length < 10) {
+      newErrors.phone = 'Nomor telepon minimal 10 digit';
     }
 
     if (!formData.password.trim()) {
@@ -61,8 +62,8 @@ export const LoginScreen: React.FC = () => {
     try {
       setLoading(true);
       
-      // Attempt to sign in with Supabase
-      await AuthService.signIn(formData.email.trim(), formData.password);
+      // Attempt to sign in with phone number
+      await AuthService.signIn(formData.phone.trim(), formData.password);
       
       // Show success toast
       Toast.show({
@@ -85,10 +86,8 @@ export const LoginScreen: React.FC = () => {
       let errorMessage = 'Gagal masuk. Silakan coba lagi.';
       
       if (error?.message) {
-        if (error.message.includes('Invalid login credentials')) {
-          errorMessage = 'Email atau kata sandi salah. Silakan coba lagi.';
-        } else if (error.message.includes('Email not confirmed')) {
-          errorMessage = 'Email belum dikonfirmasi. Silakan cek email Anda.';
+        if (error.message.includes('Nomor telepon atau password salah')) {
+          errorMessage = 'Nomor telepon atau kata sandi salah. Silakan coba lagi.';
         } else if (error.message.includes('Too many requests')) {
           errorMessage = 'Terlalu banyak percobaan login. Silakan tunggu beberapa menit.';
         } else {
@@ -117,40 +116,19 @@ export const LoginScreen: React.FC = () => {
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
-      <SafeAreaView className="flex-1 bg-smar-light">
+      <SafeAreaView className="flex-1 bg-green-100/90">
         <ScrollView 
           className="flex-1" 
           contentContainerStyle={{ flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
         >
-          <View className="flex-1 px-6 pt-8 pb-6">
+          <View className="flex-1 px-6 pt-6 pb-4">
             {/* Header with Logo */}
-            <View className="items-center mb-8">
-              <View className="flex-row items-center justify-center mb-6">
-                {/* Lung and Pills Illustration */}
-                <View className="relative">
-                  <View className="flex-row items-center">
-                    {/* Left Lung */}
-                    <View className="w-16 h-20 bg-red-300 rounded-l-full rounded-r-lg mr-1" />
-                    {/* Trachea */}
-                    <View className="w-2 h-12 bg-yellow-200 absolute left-8 -top-2" />
-                    {/* Right Lung */}
-                    <View className="w-16 h-20 bg-red-300 rounded-r-full rounded-l-lg ml-1" />
-                    {/* Pills */}
-                    <View className="absolute -right-4 top-2 bg-blue-200 rounded-lg p-2 rotate-12">
-                      <View className="flex-row flex-wrap w-8">
-                        {[...Array(8)].map((_, i) => (
-                          <View 
-                            key={i} 
-                            className="w-2 h-2 bg-smar-blue rounded-full m-0.5" 
-                          />
-                        ))}
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              </View>
-              
+            <View className="items-center mb-2">
+            <Image 
+              source={require('../../assets/images/png/icon.png')}
+              className="w-64 h-64"
+            />
               {/* Title */}
               <Text className="text-4xl font-kollektif font-bold text-smar-green mb-2">
                 SMAR-TB
@@ -163,13 +141,13 @@ export const LoginScreen: React.FC = () => {
             </View>
 
             {/* Form Fields */}
-            <View className="mb-6">
+            <View className="mb-3 rounded-full ">
               <InputField
-                placeholder="E-mail atau Nomor Telepon"
-                value={formData.email}
-                onChangeText={(text) => handleInputChange('email', text)}
-                keyboardType="email-address"
-                error={errors.email}
+                placeholder="Nomor Telepon"
+                value={formData.phone}
+                onChangeText={(text) => handleInputChange('phone', text)}
+                keyboardType="phone-pad"
+                error={errors.phone}
                 editable={!loading}
               />
 
@@ -184,8 +162,9 @@ export const LoginScreen: React.FC = () => {
             </View>
 
             {/* Action Buttons */}
-            <View className="space-y-4">
+            <View className="space-y-4 rounded-full">
               <Button
+              
                 title={loading ? "Memproses..." : "Masuk"}
                 onPress={handleLogin}
                 variant="primary"

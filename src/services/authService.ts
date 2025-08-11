@@ -1,233 +1,187 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SignupRequest, supabase, User, UserProfile } from '../lib/supabase';
 
 export class AuthService {
-  // Sign up new user
+  // Sign up new user (phone-only, no Supabase auth)
   static async signUp(userData: SignupRequest) {
     try {
-      // First, sign up the user
-      const { data, error } = await supabase.auth.signUp({
-        email: userData.email,
-        password: userData.password,
-        options: {
-          data: {
-            full_name: userData.full_name,
-            phone: userData.phone,
-            date_of_birth: userData.date_of_birth,
-            gender: userData.gender,
-            national_id: userData.national_id,
-          },
-        },
+      console.log('Starting phone-only registration...');
+      
+      // Generate a UUID for the user
+      const userId = this.generateUUID();
+      
+      // Step 1: Create user directly in custom users table
+      console.log('Creating user in custom users table...');
+      const { data: userCreateData, error: userCreateError } = await supabase.rpc('create_user', {
+        p_id: userId,
+        p_phone: userData.phone,
+        p_password: userData.password,
+        p_full_name: userData.full_name,
+        p_nickname: userData.nickname,
+        p_date_of_birth: userData.date_of_birth,
+        p_gender: userData.gender,
+        p_national_id: userData.national_id,
       });
-
-      if (error) throw error;
-
-      console.log('SignUp result:', data);
-
-      // If user was created successfully, try to create user profile
-      if (data.user) {
-        // Wait a moment for the user to be fully created
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Step 1: Create user in custom users table
-        console.log('Creating user in custom users table...');
-        const { data: userCreateData, error: userCreateError } = await supabase.rpc('create_user', {
-          p_id: data.user.id,
-          p_email: userData.email,
-          p_phone: userData.phone,
-          p_full_name: userData.full_name,
-          p_date_of_birth: userData.date_of_birth,
-          p_gender: userData.gender,
-          p_national_id: userData.national_id,
-        });
-        
-        if (userCreateError) {
-          console.error('User creation in custom table failed:', userCreateError.message);
-          // Check if user already exists (might happen on retry)
-          if (userCreateError.message.includes('already exists') || userCreateError.message.includes('duplicate')) {
-            console.log('User already exists in custom table, continuing...');
-          } else {
-            console.error('Failed to create user in custom table:', userCreateError.message);
-            // Continue anyway - user was created in auth table
-          }
+      
+      if (userCreateError) {
+        console.error('User creation in custom table failed:', userCreateError.message);
+        if (userCreateError.message.includes('already exists') || userCreateError.message.includes('duplicate')) {
+          throw new Error('Nomor telepon sudah terdaftar');
         } else {
-          console.log('User created successfully in custom table!');
-        }
-        
-        // Step 2: Try to create user profile - this might fail due to RLS, but user is already created
-        try {
-          const { error: profileError } = await supabase
-            .from('user_profiles')
-            .insert({
-              user_id: data.user.id,
-              treatment_start_date: userData.treatment_start_date,
-              current_day: 0,
-              total_points: 0,
-              streak_days: 0,
-              treatment_phase: 'Intensive',
-              health_facility: userData.health_facility,
-              doctor_name: userData.doctor_name,
-              tb_type: userData.tb_type,
-              medication_combination: userData.medication_combination,
-              comorbidities: userData.comorbidities,
-            });
-
-          if (profileError) {
-            console.error('Profile creation error:', profileError);
-            // Profile creation failed, but user was created successfully
-            // We'll handle this in the sign-in process
-          } else {
-            // Schedule sputum collection reminders
-            try {
-              await this.scheduleSputumReminders(data.user.id);
-            } catch (reminderError) {
-              console.error('Sputum reminder scheduling error:', reminderError);
-            }
-          }
-        } catch (profileError) {
-          console.error('Profile creation failed:', profileError);
-          // Continue anyway - user was created successfully
+          throw new Error(`Gagal membuat akun: ${userCreateError.message}`);
         }
       }
+      
+      console.log('User created successfully in custom table!');
+      
+      // Step 2: Create user profile
+      console.log('Creating user profile...');
+      const { data: profileData, error: profileError } = await supabase.rpc('create_user_profile', {
+        p_user_id: userId,
+        p_treatment_start_date: userData.treatment_start_date,
+        p_health_facility: userData.health_facility,
+        p_doctor_name: userData.doctor_name,
+        p_tb_type: userData.tb_type,
+        p_medication_combination: userData.medication_combination,
+        p_comorbidities: userData.comorbidities,
+      });
 
-      return data;
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+        throw new Error(`Gagal membuat profil: ${profileError.message}`);
+      }
+      
+      console.log('User profile created successfully!');
+      
+      // Schedule sputum collection reminders
+      try {
+        await this.scheduleSputumReminders(userId);
+      } catch (reminderError) {
+        console.error('Sputum reminder scheduling error:', reminderError);
+      }
+
+      // Create mock user object for return
+      const mockUser = {
+        id: userId,
+        phone: userData.phone,
+        full_name: userData.full_name,
+        nickname: userData.nickname || '',
+        date_of_birth: userData.date_of_birth,
+        gender: userData.gender,
+        national_id: userData.national_id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      return { user: mockUser };
     } catch (error) {
       console.error('Signup error:', error);
       throw error;
     }
   }
 
-  // Sign up and sign in user (for immediate access)
-  static async signUpAndSignIn(userData: SignupRequest) {
+  // Auto register and sign in user (phone-only, simplified)
+  static async autoRegisterAndSignIn(userData: SignupRequest) {
     try {
-      console.log('Starting signUpAndSignIn process...');
+      console.log('Starting phone-only auto register and sign in process...');
       
-      // First, sign up the user
+      // Step 1: Register user
       const signUpResult = await this.signUp(userData);
       console.log('SignUp completed:', signUpResult);
       
-      if (signUpResult.user) {
-        console.log('User created successfully, attempting to sign in...');
-        
-        // Wait a bit for the user to be fully created and propagated
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Check if email confirmation is required
-        if (signUpResult.user.email_confirmed_at) {
-          console.log('Email already confirmed, proceeding with sign in');
-        } else {
-          console.log('Email confirmation required, but proceeding anyway for testing');
-          // In a real app, you might want to wait for email confirmation
-          // For now, we'll proceed anyway
-        }
-        
-        // Then immediately sign in the user
-        const signInResult = await this.signIn(userData.email, userData.password);
-        console.log('SignIn completed:', signInResult);
-        
-        // Wait a bit for the session to be established
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Now that we're authenticated, try to create the user profile
-        if (signInResult.user) {
-          try {
-            // Check if profile already exists
-            const { data: existingProfile, error: checkError } = await supabase
-              .from('user_profiles')
-              .select('id')
-              .eq('user_id', signInResult.user.id)
-              .single();
-
-            if (checkError && checkError.code !== 'PGRST116') {
-              console.error('Error checking existing profile:', checkError);
-            }
-
-            if (!existingProfile) {
-              console.log('Creating user profile...');
-              // Use the RPC function to create user profile
-              const { data: rpcResult, error: rpcError } = await supabase.rpc('create_user_profile', {
-                p_user_id: signInResult.user.id,
-                p_treatment_start_date: userData.treatment_start_date,
-                p_health_facility: userData.health_facility,
-                p_doctor_name: userData.doctor_name,
-                p_tb_type: userData.tb_type,
-                p_medication_combination: userData.medication_combination,
-                p_comorbidities: userData.comorbidities,
-              });
-
-              if (rpcError) {
-                console.error('Profile creation error after sign-in (RPC):', rpcError);
-                // If RPC fails, try direct insert as fallback
-                const { error: profileError } = await supabase
-                  .from('user_profiles')
-                  .insert({
-                    user_id: signInResult.user.id,
-                    treatment_start_date: userData.treatment_start_date,
-                    current_day: 0,
-                    total_points: 0,
-                    streak_days: 0,
-                    treatment_phase: 'Intensive',
-                    health_facility: userData.health_facility,
-                    doctor_name: userData.doctor_name,
-                    tb_type: userData.tb_type,
-                    medication_combination: userData.medication_combination,
-                    comorbidities: userData.comorbidities,
-                  });
-
-                if (profileError) {
-                  console.error('Profile creation error after sign-in (fallback):', profileError);
-                  // If profile creation fails due to RLS, we'll try a different approach
-                  // We can create the profile later when the user accesses the dashboard
-                  console.log('Profile creation failed due to RLS, will create later when needed.');
-                } else {
-                  console.log('User profile created successfully via fallback');
-                  // Schedule sputum collection reminders
-                  try {
-                    await this.scheduleSputumReminders(signInResult.user.id);
-                  } catch (reminderError) {
-                    console.error('Sputum reminder scheduling error:', reminderError);
-                  }
-                }
-              } else {
-                console.log('User profile created successfully via RPC');
-              }
-            } else {
-              console.log('User profile already exists');
-            }
-          } catch (profileError) {
-            console.error('Profile creation failed after sign-in:', profileError);
-            // Continue anyway - user is authenticated
-            console.log('Profile creation failed, but user is authenticated. Will create profile later.');
-          }
-        }
-        
-        // Verify the session was created
-        const session = await this.getCurrentSession();
-        if (session) {
-          console.log('Session verified:', session.user?.email);
-        } else {
-          console.log('No session found after sign in');
-        }
-        
-        return signInResult;
+      if (!signUpResult.user) {
+        throw new Error('Gagal membuat akun');
       }
       
-      return signUpResult;
+      console.log('User created successfully:', signUpResult.user.phone);
+      
+      // Step 2: Wait a moment for user to be fully created
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Step 3: Try to sign in immediately
+      try {
+        console.log('Attempting auto sign-in...');
+        const signInResult = await this.signIn(userData.phone, userData.password);
+        console.log('Auto sign-in successful:', signInResult.user?.phone);
+        
+        return {
+          user: signInResult.user,
+          session: signInResult.session,
+          success: true,
+          message: 'Registrasi dan login berhasil',
+          requiresEmailConfirmation: false
+        };
+      } catch (signInError) {
+        console.log('Auto sign-in failed, but user was created:', signInError);
+        
+        return {
+          user: signUpResult.user,
+          session: null,
+          success: true,
+          message: 'Registrasi berhasil, silakan login',
+          requiresEmailConfirmation: false
+        };
+      }
+      
     } catch (error) {
-      console.error('SignUpAndSignIn error:', error);
+      console.error('Auto register and sign in error:', error);
       throw error;
     }
   }
 
-  // Sign in user
-  static async signIn(email: string, password: string) {
+  // Sign in user (phone-only)
+  static async signIn(phone: string, password: string) {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      console.log('Attempting phone-only login...');
+      
+      // Check if user exists in custom users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('phone', phone)
+        .single();
+
+      if (userError || !userData) {
+        console.log('User not found:', userError?.message || 'No user data');
+        throw new Error('Nomor telepon atau password salah');
+      }
+
+      console.log('User found in custom table:', userData.phone);
+
+      // Verify password using RPC function
+      console.log('Verifying password...');
+      const { data: verificationResult, error: verifyError } = await supabase.rpc('verify_user_password', {
+        p_phone: phone,
+        p_password: password
       });
 
-      if (error) throw error;
-      return data;
+      if (verifyError || !verificationResult || !verificationResult[0]?.is_valid) {
+        console.log('Password verification failed:', verifyError?.message || 'Invalid password');
+        throw new Error('Nomor telepon atau password salah');
+      }
+      
+      console.log('Password verified successfully');
+
+      // Create custom session
+      const sessionData = {
+        user: userData,
+        access_token: `custom_${userData.id}`,
+        refresh_token: `refresh_${userData.id}`,
+        expires_at: Math.floor(Date.now() / 1000) + (24 * 60 * 60), // 24 hours
+        token_type: 'bearer',
+      };
+
+      // Store session in AsyncStorage
+      await this.storeCustomSession(sessionData);
+      
+      console.log('Phone login successful');
+      
+      return {
+        user: userData,
+        session: sessionData,
+        success: true,
+        message: 'Login berhasil'
+      };
     } catch (error) {
       console.error('Signin error:', error);
       throw error;
@@ -237,35 +191,60 @@ export class AuthService {
   // Sign out user
   static async signOut() {
     try {
+      // Sign out from Supabase
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase sign out error:', error);
+      }
+      
+      // Clear custom session
+      try {
+        await AsyncStorage.removeItem('smartb_custom_session');
+        await AsyncStorage.removeItem('smartb_custom_user');
+        console.log('Custom session cleared');
+      } catch (customError) {
+        console.error('Failed to clear custom session:', customError);
+      }
     } catch (error) {
       console.error('Signout error:', error);
       throw error;
     }
   }
 
-  // Get current user
+  // Get current user (phone-only, no Supabase auth)
   static async getCurrentUser() {
     try {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error) throw error;
-      return user;
+      // Check for custom session only
+      console.log('Checking for custom session...');
+      const customSession = await this.getCustomSession();
+      if (customSession && customSession.user) {
+        console.log('Custom user found:', customSession.user.id);
+        return customSession.user;
+      }
+      
+      console.log('No valid user session found');
+      return null;
     } catch (error) {
       console.error('Get current user error:', error);
-      throw error;
+      return null;
     }
   }
 
-  // Get current session
+  // Get current session (custom session only)
   static async getCurrentSession() {
     try {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      return session;
+      // Check for custom session only
+      console.log('Checking for custom session...');
+      const customSession = await this.getCustomSession();
+      if (customSession) {
+        console.log('Custom session found');
+        return customSession;
+      }
+      
+      return null;
     } catch (error) {
       console.error('Get session error:', error);
-      throw error;
+      return null;
     }
   }
 
@@ -313,10 +292,118 @@ export class AuthService {
         .eq('user_id', userId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // If dashboard doesn't exist, create it
+        if (error.code === 'PGRST116') {
+          console.log('User dashboard not found, creating...');
+          const { data: newDashboard, error: createError } = await supabase
+            .from('user_dashboard')
+            .insert({
+              user_id: userId,
+              current_day: 0,
+              total_points: 0,
+              streak_days: 0,
+              treatment_phase: 'Intensive'
+            })
+            .select()
+            .single();
+          
+          if (createError) throw createError;
+          return newDashboard;
+        }
+        throw error;
+      }
       return data;
     } catch (error) {
       console.error('Get user dashboard error:', error);
+      throw error;
+    }
+  }
+
+  // Update user dashboard
+  static async updateUserDashboard(userId: string, updates: any) {
+    try {
+      const { data, error } = await supabase
+        .from('user_dashboard')
+        .update(updates)
+        .eq('user_id', userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Update user dashboard error:', error);
+      throw error;
+    }
+  }
+
+  // Get daily inputs
+  static async getDailyInputs(userId: string, date?: string) {
+    try {
+      let query = supabase
+        .from('daily_inputs')
+        .select('*')
+        .eq('user_id', userId);
+      
+      if (date) {
+        query = query.eq('input_date', date);
+      }
+      
+      const { data, error } = await query.order('input_date', { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Get daily inputs error:', error);
+      throw error;
+    }
+  }
+
+  // Create or update daily input
+  static async createDailyInput(userId: string, inputData: {
+    input_date: string;
+    medication_taken: boolean;
+    side_effects?: string;
+    mood_rating?: number;
+    notes?: string;
+  }) {
+    try {
+      // Check if input already exists for this date
+      const { data: existingInput } = await supabase
+        .from('daily_inputs')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('input_date', inputData.input_date)
+        .single();
+
+      if (existingInput) {
+        // Update existing input
+        const { data, error } = await supabase
+          .from('daily_inputs')
+          .update(inputData)
+          .eq('id', existingInput.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      } else {
+        // Create new input
+        const { data, error } = await supabase
+          .from('daily_inputs')
+          .insert({
+            user_id: userId,
+            ...inputData
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
+    } catch (error) {
+      console.error('Create daily input error:', error);
       throw error;
     }
   }
@@ -342,13 +429,80 @@ export class AuthService {
   // Schedule sputum collection reminders
   static async scheduleSputumReminders(userId: string) {
     try {
+      // Try to schedule reminders using RPC function
       const { error } = await supabase.rpc('schedule_sputum_reminders', {
         p_user_id: userId,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.log('RPC schedule_sputum_reminders failed, skipping reminder scheduling:', error.message);
+        // Don't throw error, just log it and continue
+        return;
+      }
+      
+      console.log('Sputum reminders scheduled successfully');
     } catch (error) {
-      console.error('Schedule sputum reminders error:', error);
+      console.log('Schedule sputum reminders error (non-critical):', error);
+      // Don't throw error, just log it and continue
+    }
+  }
+
+  // Custom login method (phone-only) 
+  static async customLogin(phone: string, password: string) {
+    try {
+      console.log('Attempting custom phone login...');
+      
+      // Check if user exists in custom users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('phone', phone)
+        .single();
+
+      if (userError || !userData) {
+        console.log('User not found in custom table:', userError?.message || 'No user data');
+        throw new Error('Nomor telepon atau password salah');
+      }
+
+      console.log('User found in custom table:', userData.phone);
+
+      // Verify password using RPC function
+      console.log('Verifying password...');
+      const { data: verificationResult, error: verifyError } = await supabase.rpc('verify_user_password', {
+        p_phone: phone,
+        p_password: password
+      });
+
+      if (verifyError || !verificationResult || !verificationResult[0]?.is_valid) {
+        console.log('Password verification failed:', verifyError?.message || 'Invalid password');
+        throw new Error('Nomor telepon atau password salah');
+      }
+      
+      console.log('Password verified successfully');
+
+      // Create custom session
+      const sessionData = {
+        user: userData,
+        access_token: `custom_${userData.id}`,
+        refresh_token: `refresh_${userData.id}`,
+        expires_at: Math.floor(Date.now() / 1000) + (24 * 60 * 60), // 24 hours
+        token_type: 'bearer',
+      };
+
+      // Store session in AsyncStorage
+      await this.storeCustomSession(sessionData);
+      
+      console.log('Custom phone login successful');
+      
+      return {
+        user: userData,
+        session: sessionData,
+        success: true,
+        message: 'Login berhasil'
+      };
+
+    } catch (error) {
+      console.error('Custom phone login error:', error);
       throw error;
     }
   }
@@ -356,8 +510,19 @@ export class AuthService {
   // Check if user is authenticated
   static async isAuthenticated(): Promise<boolean> {
     try {
+      // First, check Supabase session
       const session = await this.getCurrentSession();
-      return !!session;
+      if (session) {
+        return true;
+      }
+      
+      // If no session, check for custom session
+      const customSession = await this.getCustomSession();
+      if (customSession && customSession.user) {
+        return true;
+      }
+      
+      return false;
     } catch (error) {
       return false;
     }
@@ -495,6 +660,7 @@ export class AuthService {
             p_email: authUser.email || '',
             p_phone: authUser.phone || '',
             p_full_name: authUser.user_metadata?.full_name || '',
+            p_nickname: authUser.user_metadata?.nickname || null,
             p_date_of_birth: authUser.user_metadata?.date_of_birth || null,
             p_gender: authUser.user_metadata?.gender || '',
             p_national_id: authUser.user_metadata?.national_id || '',
@@ -502,6 +668,9 @@ export class AuthService {
           
           if (userCreateError) {
             console.error('Failed to create user in custom table:', userCreateError.message);
+            if (userCreateError.message.includes('is_active')) {
+              console.log('is_active column error in ensureUserProfile - continuing with profile creation');
+            }
             // Continue anyway - we'll try to create the profile
           } else {
             console.log('User created successfully in custom table');
@@ -535,46 +704,21 @@ export class AuthService {
 
         if (rpcError) {
           console.error('Profile creation error in ensureUserProfile (RPC):', rpcError);
-          // If RPC fails, try direct insert as fallback
-          try {
-            const { error: profileError } = await supabase
-              .from('user_profiles')
-              .insert({
-                user_id: userId,
-                treatment_start_date: treatmentStartDate,
-                current_day: 0,
-                total_points: 0,
-                streak_days: 0,
-                treatment_phase: 'Intensive',
-                health_facility: medicalData?.health_facility || null,
-                doctor_name: medicalData?.doctor_name || null,
-                tb_type: medicalData?.tb_type || null,
-                medication_combination: medicalData?.medication_combination || null,
-                comorbidities: medicalData?.comorbidities || null,
-              });
-
-            if (profileError) {
-              console.error('Fallback profile creation also failed:', profileError);
-              throw profileError;
-            } else {
-              console.log('User profile created successfully via fallback');
-              // Schedule sputum collection reminders
-              try {
-                await this.scheduleSputumReminders(userId);
-              } catch (reminderError) {
-                console.error('Sputum reminder scheduling error:', reminderError);
-              }
-            }
-          } catch (fallbackError) {
-            console.error('All profile creation methods failed:', fallbackError);
-            throw fallbackError;
-          }
+          throw rpcError;
         } else {
           console.log('User profile created successfully via RPC');
+          // Schedule sputum collection reminders
+          try {
+            await this.scheduleSputumReminders(userId);
+          } catch (reminderError) {
+            console.error('Sputum reminder scheduling error:', reminderError);
+          }
         }
       } else if (checkError) {
-        console.error('Error checking existing profile in ensureUserProfile:', checkError);
-        // Don't throw error here, just log it
+        console.error('Error checking existing profile:', checkError);
+        throw checkError;
+      } else {
+        console.log('User profile already exists');
       }
     } catch (error) {
       console.error('ensureUserProfile error:', error);
@@ -582,4 +726,42 @@ export class AuthService {
       console.log('ensureUserProfile failed, but continuing...');
     }
   }
+
+  // Custom register method removed - now using signUp directly
+
+  // Generate UUID
+  private static generateUUID(): string {
+    // Simple UUID v4 generation
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  // Store custom session in AsyncStorage
+  private static async storeCustomSession(sessionData: any) {
+    try {
+      await AsyncStorage.setItem('smartb_custom_session', JSON.stringify(sessionData));
+      await AsyncStorage.setItem('smartb_custom_user', JSON.stringify(sessionData.user));
+    } catch (error) {
+      console.error('Failed to store custom session:', error);
+      throw error;
+    }
+  }
+
+  // Get custom session from AsyncStorage
+  private static async getCustomSession() {
+    try {
+      const sessionData = await AsyncStorage.getItem('smartb_custom_session');
+      if (sessionData) {
+        return JSON.parse(sessionData);
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to get custom session:', error);
+      return null;
+    }
+  }
 }
+
