@@ -36,32 +36,57 @@ const CameraVerification: React.FC<CameraVerificationProps> = ({
 
     try {
       setIsVerifying(true);
-      
-      // Simulate verification process with a short delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      setVerificationComplete(true);
-      
-      // Show success feedback
-      Alert.alert(
-        'Verifikasi Berhasil',
-        'Verifikasi wajah berhasil dilakukan!',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              onVerificationSuccess();
-            }
-          }
-        ]
-      );
+
+      if (!cameraRef.current) throw new Error('Camera not ready');
+
+      // Capture photo from camera
+      // takePictureAsync is provided by expo-camera's CameraView
+  const photo = await cameraRef.current.takePictureAsync({ quality: 0.7 });
+      const uri = photo.uri;
+
+      if (!uri) throw new Error('No photo captured');
+
+      // Prepare multipart/form-data
+      const formData = new FormData();
+      const fileName = uri.split('/').pop() || 'photo.jpg';
+      const match = /\.(\w+)$/.exec(fileName);
+      const fileType = match ? `image/${match[1]}` : 'image/jpeg';
+
+      formData.append('image', {
+        uri,
+        name: fileName,
+        type: fileType,
+      } as any);
+
+      // NOTE: Do not set Content-Type header; fetch will set the correct boundary for multipart/form-data
+      const res = await fetch('http://localhost:3000', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.error('Upload failed', res.status, text);
+        throw new Error('Upload failed');
+      }
+
+      const json = await res.json().catch(() => ({}));
+      const accepted = !!json.accepted;
+
+      if (accepted) {
+        setVerificationComplete(true);
+        Alert.alert('Verifikasi Berhasil', 'Verifikasi wajah berhasil dilakukan!', [
+          { text: 'OK', onPress: () => onVerificationSuccess() },
+        ]);
+      } else {
+        // Rejected by server: prompt user to retake
+        Alert.alert('Verifikasi Ditolak', 'Coba ambil foto lagi dengan pencahayaan yang lebih baik.', [
+          { text: 'OK', onPress: () => onVerificationFailed() },
+        ]);
+      }
     } catch (error) {
       console.error('Error during verification:', error);
-      Alert.alert(
-        'Error',
-        'Gagal melakukan verifikasi. Silakan coba lagi.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Error', 'Gagal melakukan verifikasi. Silakan coba lagi.', [{ text: 'OK' }]);
       onVerificationFailed();
     } finally {
       setIsVerifying(false);
