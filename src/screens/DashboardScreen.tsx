@@ -12,10 +12,17 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Modal,
+  Animated,
+  Dimensions,
+  Platform,
 } from "react-native";
+import { WebView } from 'react-native-webview';
 import { UserDashboard, supabase } from "../lib/supabase";
 import { AuthService } from "../services/authService";
 import { DailyInputService } from "../services/dailyInputService";
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export const DashboardScreen: React.FC = () => {
   const [userData, setUserData] = useState<UserDashboard | null>(null);
@@ -27,6 +34,9 @@ export const DashboardScreen: React.FC = () => {
     pointsEarned: 0,
   });
   const [daysSinceRegistration, setDaysSinceRegistration] = useState<number>(0);
+  const [chatbotVisible, setChatbotVisible] = useState(false);
+  const [chatbotLoading, setChatbotLoading] = useState(true);
+  const slideAnim = useState(new Animated.Value(SCREEN_HEIGHT))[0];
 
   useEffect(() => {
     loadDashboardData();
@@ -230,6 +240,87 @@ export const DashboardScreen: React.FC = () => {
     loadDashboardData();
   };
 
+  const openChatbot = () => {
+    setChatbotVisible(true);
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      friction: 8,
+    }).start();
+  };
+
+  const closeChatbot = () => {
+    Animated.timing(slideAnim, {
+      toValue: SCREEN_HEIGHT,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setChatbotVisible(false);
+      setChatbotLoading(true);
+    });
+  };
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+      <title>SMARTB AI Assistant</title>
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        html, body {
+          height: 100%;
+          width: 100%;
+          overflow: hidden;
+          background-color: #ffffff;
+        }
+        body {
+          display: flex;
+          flex-direction: column;
+        }
+        #jotform-container {
+          flex: 1;
+          width: 100%;
+          height: 100%;
+          position: relative;
+        }
+        iframe {
+          border: none;
+          width: 100%;
+          height: 100%;
+        }
+      </style>
+    </head>
+    <body>
+      <div id="jotform-container">
+        <iframe 
+          id="JotFormIFrame-agent" 
+          src="https://www.jotform.com/ai-agent/019a39cd4ebf787eb91665b20832550a3ab6"
+          frameborder="0"
+          scrolling="yes"
+          allow="geolocation; microphone; camera"
+          style="width: 100%; height: 100%; border: none;"
+        >
+        </iframe>
+      </div>
+      <script>
+        window.addEventListener('load', function() {
+          setTimeout(function() {
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'loaded' }));
+            }
+          }, 2000);
+        });
+      </script>
+    </body>
+    </html>
+  `;
+
   if (loading) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50">
@@ -340,6 +431,30 @@ export const DashboardScreen: React.FC = () => {
           
         </ScrollView>
         
+        {/* Floating Chatbot Button - Above Calendar */}
+        <TouchableOpacity
+          onPress={openChatbot}
+          className="absolute bottom-24 right-6 rounded-full p-2 shadow-lg"
+          activeOpacity={0.8}
+          style={{
+            backgroundColor: '#3E0E46',
+            shadowColor: '#000',
+            shadowOffset: {
+              width: 0,
+              height: 2,
+            },
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84,
+            elevation: 5,
+          }}
+        >
+          <Image
+            source={require('../../assets/images/png/chatbot.png')}
+            style={{ width: 40, height: 40, borderRadius: 20 }}
+            resizeMode="cover"
+          />
+        </TouchableOpacity>
+
         {/* Floating Calendar Button */}
         <TouchableOpacity
           onPress={handleCalendar}
@@ -358,6 +473,118 @@ export const DashboardScreen: React.FC = () => {
         >
           <Ionicons name="calendar" size={24} color="white" />
         </TouchableOpacity>
+
+        {/* Chatbot Modal Pop-up */}
+        <Modal
+          visible={chatbotVisible}
+          transparent={true}
+          animationType="none"
+          onRequestClose={closeChatbot}
+        >
+          <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+            <TouchableOpacity 
+              style={{ flex: 1 }} 
+              activeOpacity={1} 
+              onPress={closeChatbot}
+            />
+            <Animated.View
+              style={{
+                height: SCREEN_HEIGHT * 0.85,
+                backgroundColor: '#fff',
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                transform: [{ translateY: slideAnim }],
+                overflow: 'hidden',
+              }}
+            >
+              {/* Header */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  backgroundColor: '#2D5A4F',
+                  borderTopLeftRadius: 20,
+                  borderTopRightRadius: 20,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Image
+                    source={require('../../assets/images/png/chatbot.png')}
+                    style={{ width: 32, height: 32, marginRight: 8, borderRadius: 16 }}
+                    resizeMode="cover"
+                  />
+                  <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#fff' }}>
+                    AI Assistant SMARTB
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={closeChatbot} style={{ padding: 4 }}>
+                  <Ionicons name="close" size={28} color="#fff" />
+                </TouchableOpacity>
+              </View>
+
+              {/* WebView Content */}
+              <View style={{ flex: 1, position: 'relative' }}>
+                <WebView
+                  source={{ 
+                    uri: 'https://www.jotform.com/ai-agent/019a39cd4ebf787eb91665b20832550a3ab6'
+                  }}
+                  style={{ flex: 1, backgroundColor: '#ffffff' }}
+                  javaScriptEnabled={true}
+                  domStorageEnabled={true}
+                  startInLoadingState={true}
+                  scalesPageToFit={true}
+                  showsVerticalScrollIndicator={true}
+                  showsHorizontalScrollIndicator={false}
+                  onLoadStart={() => {
+                    console.log('WebView loading started');
+                    setChatbotLoading(true);
+                  }}
+                  onLoadEnd={() => {
+                    console.log('WebView loading ended');
+                    setTimeout(() => setChatbotLoading(false), 2000);
+                  }}
+                  onError={(syntheticEvent) => {
+                    const { nativeEvent } = syntheticEvent;
+                    console.error('WebView error:', nativeEvent);
+                    setChatbotLoading(false);
+                  }}
+                  thirdPartyCookiesEnabled={true}
+                  mixedContentMode="always"
+                  allowFileAccess={true}
+                  allowUniversalAccessFromFileURLs={true}
+                  originWhitelist={['*']}
+                  javaScriptCanOpenWindowsAutomatically={true}
+                  setSupportMultipleWindows={false}
+                  mediaPlaybackRequiresUserAction={false}
+                  allowsInlineMediaPlayback={true}
+                />
+                
+                {chatbotLoading && (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      backgroundColor: '#f5f5f5',
+                    }}
+                  >
+                    <ActivityIndicator size="large" color="#2D5A4F" />
+                    <Text style={{ marginTop: 16, fontSize: 16, color: '#2D5A4F' }}>
+                      Memuat AI Assistant...
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </Animated.View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </>
   );
