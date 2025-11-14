@@ -39,54 +39,100 @@ const CameraVerification: React.FC<CameraVerificationProps> = ({
 
       if (!cameraRef.current) throw new Error('Camera not ready');
 
-      // Capture photo from camera
-      // takePictureAsync is provided by expo-camera's CameraView
-  const photo = await cameraRef.current.takePictureAsync({ quality: 0.7 });
+      // Capture photo from camera with optimized settings
+      console.log('Capturing photo...');
+      const photo = await cameraRef.current.takePictureAsync({ 
+        quality: 0.8,
+        skipProcessing: false,
+      });
+      
+      if (!photo || !photo.uri) {
+        throw new Error('Failed to capture photo - no URI');
+      }
+
       const uri = photo.uri;
+      console.log('Photo captured successfully:', uri);
 
-      if (!uri) throw new Error('No photo captured');
-
-      // Prepare multipart/form-data
+      // Prepare multipart/form-data with proper file handling
       const formData = new FormData();
-      const fileName = uri.split('/').pop() || 'photo.jpg';
-      const match = /\.(\w+)$/.exec(fileName);
-      const fileType = match ? `image/${match[1]}` : 'image/jpeg';
-
+      
+      // Generate filename with timestamp to avoid caching
+      const timestamp = Date.now();
+      const fileName = `face_verification_${timestamp}.jpg`;
+      
+      // Append file with proper MIME type
       formData.append('image', {
         uri,
         name: fileName,
-        type: fileType,
+        type: 'image/jpeg',
       } as any);
 
-      // NOTE: Do not set Content-Type header; fetch will set the correct boundary for multipart/form-data
-      const res = await fetch('http://localhost:3000', {
+      console.log('Uploading image to API...', fileName);
+
+      // Upload with timeout and better error handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      const res = await fetch('https://eat-medicine.vercel.app/pose', {
         method: 'POST',
         body: formData,
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+        },
       });
 
+      clearTimeout(timeoutId);
+
+      console.log('API Response Status:', res.status);
+
       if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        console.error('Upload failed', res.status, text);
-        throw new Error('Upload failed');
+        const responseText = await res.text().catch(() => '');
+        console.error('Upload failed with status', res.status, ':', responseText);
+        throw new Error(`API returned status ${res.status}: ${responseText || 'Unknown error'}`);
       }
 
-      const json = await res.json().catch(() => ({}));
-      const accepted = !!json.accepted;
+      // Parse response
+      const json = await res.json().catch((err) => {
+        console.error('Failed to parse response JSON:', err);
+        return {};
+      });
+
+      console.log('API Response:', json);
+
+      // Check for acceptance - handle both 'accepted' and other possible response formats
+      const accepted = json.accepted === true || json.success === true;
 
       if (accepted) {
+        console.log('Verification successful');
         setVerificationComplete(true);
         Alert.alert('Verifikasi Berhasil', 'Verifikasi wajah berhasil dilakukan!', [
           { text: 'OK', onPress: () => onVerificationSuccess() },
         ]);
       } else {
+        console.log('Verification rejected by API');
         // Rejected by server: prompt user to retake
-        Alert.alert('Verifikasi Ditolak', 'Coba ambil foto lagi dengan pencahayaan yang lebih baik.', [
-          { text: 'OK', onPress: () => onVerificationFailed() },
-        ]);
+        Alert.alert(
+          'Verifikasi Ditolak', 
+          'Pastikan anda mengikuti instruksi dengan benar!',
+          [{ text: 'OK', onPress: () => onVerificationFailed() }]
+        );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error during verification:', error);
-      Alert.alert('Error', 'Gagal melakukan verifikasi. Silakan coba lagi.', [{ text: 'OK' }]);
+      
+      // Provide specific error messages
+      let errorMessage = 'Gagal melakukan verifikasi. Silakan coba lagi.';
+      
+      if (error.name === 'AbortError') {
+        errorMessage = 'Request timeout. Pastikan koneksi internet stabil.';
+      } else if (error instanceof TypeError) {
+        errorMessage = 'Koneksi gagal. Periksa internet Anda.';
+      } else if (error.message) {
+        console.error('Error details:', error.message);
+      }
+      
+      Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
       onVerificationFailed();
     } finally {
       setIsVerifying(false);
