@@ -12,18 +12,27 @@
       "ios": {
         "simulator": true,
         "buildConfiguration": "Debug"
-      }
+      },
+      "channel": "development"
     },
     "preview": {
       "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
       "ios": {
         "simulator": false
-      }
+      },
+      "channel": "preview"
     },
     "production": {
+      "android": {
+        "buildType": "apk"
+      },
       "ios": {
         "simulator": false
-      }
+      },
+      "channel": "production"
     }
   },
   "submit": {

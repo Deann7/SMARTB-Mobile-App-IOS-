@@ -3,6 +3,7 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   Home: undefined;
+  Chatbot: undefined;
 };
 
 export type AuthStackParamList = {
