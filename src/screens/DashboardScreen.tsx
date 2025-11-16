@@ -497,7 +497,7 @@ export const DashboardScreen: React.FC = () => {
                 overflow: 'hidden',
               }}
             >
-              {/* Header */}
+              {/* Header Hijau - Layer 1 (di atas) */}
               <View
                 style={{
                   flexDirection: 'row',
@@ -508,6 +508,7 @@ export const DashboardScreen: React.FC = () => {
                   backgroundColor: '#2D5A4F',
                   borderTopLeftRadius: 20,
                   borderTopRightRadius: 20,
+                  zIndex: 10,
                 }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -517,7 +518,7 @@ export const DashboardScreen: React.FC = () => {
                     resizeMode="cover"
                   />
                   <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#fff' }}>
-                    AI Assistant SMARTB
+                    Dr. Budi
                   </Text>
                 </View>
                 <TouchableOpacity onPress={closeChatbot} style={{ padding: 4 }}>
@@ -525,8 +526,8 @@ export const DashboardScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              {/* WebView Content */}
-              <View style={{ flex: 1, position: 'relative' }}>
+              {/* WebView Content - Layer 2 (di-crop bagian atas untuk sembunyikan header ungu JotForm) */}
+              <View style={{ flex: 1, position: 'relative', overflow: 'hidden', marginTop: -180, paddingTop: 0, marginBottom: -10, paddingBottom:0 }}>
                 <WebView
                   source={{ 
                     uri: 'https://www.jotform.com/ai-agent/019a39cd4ebf787eb91665b20832550a3ab6'
@@ -538,6 +539,46 @@ export const DashboardScreen: React.FC = () => {
                   scalesPageToFit={true}
                   showsVerticalScrollIndicator={true}
                   showsHorizontalScrollIndicator={false}
+                  injectedJavaScript={`
+                    (function() {
+                      function removeFooter() {
+                        // Hapus footer "By chatting, you agree to AI Terms" dan logo JotForm
+                        const elements = document.querySelectorAll('footer, [class*="footer"], [class*="Footer"], [id*="footer"], [id*="Footer"]');
+                        elements.forEach(el => {
+                          if (el.textContent.includes('chatting') || 
+                              el.textContent.includes('AI Terms') || 
+                              el.textContent.includes('Jotform')) {
+                            el.style.display = 'none';
+                            el.remove();
+                          }
+                        });
+                        
+                        // Hapus semua link yang mengarah ke Jotform
+                        const links = document.querySelectorAll('a[href*="jotform"]');
+                        links.forEach(link => {
+                          const parent = link.closest('div, footer, section');
+                          if (parent) {
+                            parent.style.display = 'none';
+                            parent.remove();
+                          }
+                        });
+                      }
+                      
+                      // Jalankan saat halaman load
+                      if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', removeFooter);
+                      } else {
+                        removeFooter();
+                      }
+                      
+                      // Jalankan berulang untuk menangkap elemen yang dimuat dinamis
+                      setTimeout(removeFooter, 500);
+                      setTimeout(removeFooter, 1000);
+                      setTimeout(removeFooter, 2000);
+                      setTimeout(removeFooter, 3000);
+                    })();
+                    true;
+                  `}
                   onLoadStart={() => {
                     console.log('WebView loading started');
                     setChatbotLoading(true);
@@ -566,7 +607,7 @@ export const DashboardScreen: React.FC = () => {
                   <View
                     style={{
                       position: 'absolute',
-                      top: 0,
+                      top: 80,
                       left: 0,
                       right: 0,
                       bottom: 0,
