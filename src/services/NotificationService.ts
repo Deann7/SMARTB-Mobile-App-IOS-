@@ -157,6 +157,88 @@ export class NotificationService {
     }
   }
 
+  static async scheduleSputumReminder(accountCreationDate: string, lastCheckDate?: string | null): Promise<void> {
+    try {
+      // Cancel existing sputum notifications
+      const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
+      const sputumNotifications = scheduledNotifications.filter(
+        notification => notification.content.data?.type === 'sputum_reminder'
+      );
+
+      for (const notification of sputumNotifications) {
+        await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+      }
+
+      // Calculate next sputum check date
+      let nextCheckDate: Date;
+
+      if (lastCheckDate) {
+        // If last check date is provided, add 6 months to it
+        const lastCheck = new Date(lastCheckDate);
+        nextCheckDate = new Date(lastCheck.getTime() + (180 * 24 * 60 * 60 * 1000)); // 6 months = ~180 days
+      } else {
+        // If no last check date, schedule for 6 months from account creation date
+        const accountCreated = new Date(accountCreationDate);
+        nextCheckDate = new Date(accountCreated.getTime() + (180 * 24 * 60 * 60 * 1000));
+      }
+      
+      // Only schedule if the date is in the future
+      const now = new Date();
+      if (nextCheckDate > now) {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "Pengingat Sputum Checkup",
+            body: "Saatnya melakukan pemeriksaan sputum. Jangan lupa berkonsultasi dengan dokter Anda.",
+            data: { type: 'sputum_reminder' },
+          },
+          trigger: {
+            day: nextCheckDate.getDate(),
+            month: nextCheckDate.getMonth() + 1,
+            year: nextCheckDate.getFullYear(),
+            hour: 9,
+            minute: 0,
+          },
+        });
+        
+        console.log(`Sputum reminder scheduled for ${nextCheckDate.toLocaleDateString()}`);
+      } else {
+        console.log('Sputum check is overdue. Scheduling for immediate notification.');
+        // Schedule for 1 minute from now if overdue
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "Pengingat Sputum Checkup",
+            body: "Pemeriksaan sputum Anda sudah melewati jadwal. Segera konsultasi dengan dokter.",
+            data: { type: 'sputum_reminder' },
+          },
+          trigger: {
+            seconds: 60,
+          },
+        });
+      }
+    } catch (error) {
+      console.log('Error scheduling sputum reminder:', error);
+      throw error;
+    }
+  }
+
+  static async cancelSputumReminder(): Promise<void> {
+    try {
+      const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
+      const sputumNotifications = scheduledNotifications.filter(
+        notification => notification.content.data?.type === 'sputum_reminder'
+      );
+      
+      for (const notification of sputumNotifications) {
+        await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+      }
+      
+      console.log('Sputum reminder cancelled');
+    } catch (error) {
+      console.log('Error cancelling sputum reminder:', error);
+      throw error;
+    }
+  }
+
   // Helper method to check if notifications are available
   static isNotificationsSupported(): boolean {
     return true;

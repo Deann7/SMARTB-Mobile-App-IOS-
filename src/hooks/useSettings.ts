@@ -6,6 +6,8 @@ export interface SettingsState {
   patientDataEnabled: boolean;
   medicationAlarmEnabled: boolean;
   medicationAlarmTime: string;
+  sputumReminderEnabled: boolean;
+  lastSputumCheckDate: string | null;
   notificationsEnabled: boolean;
   doctorVisitNotifications: boolean;
   smartbInfoNotifications: boolean;
@@ -16,6 +18,8 @@ const defaultSettings: SettingsState = {
   patientDataEnabled: true,
   medicationAlarmEnabled: false,
   medicationAlarmTime: '07:00',
+  sputumReminderEnabled: false,
+  lastSputumCheckDate: null,
   notificationsEnabled: true,
   doctorVisitNotifications: true,
   smartbInfoNotifications: false,
@@ -75,6 +79,14 @@ export const useSettings = () => {
       }
     }
     
+    if (key === 'sputumReminderEnabled') {
+      if (value && notificationsSupported) {
+        await NotificationService.scheduleSputumReminder(settings.lastSputumCheckDate);
+      } else if (!value && notificationsSupported) {
+        await NotificationService.cancelSputumReminder();
+      }
+    }
+    
     if (key === 'notificationsEnabled' && !value) {
       // Disable all notification sub-settings when main notification is off
       newSettings.doctorVisitNotifications = false;
@@ -90,6 +102,15 @@ export const useSettings = () => {
     
     if (settings.medicationAlarmEnabled && notificationsSupported) {
       await NotificationService.scheduleMedicationAlarm(time);
+    }
+  };
+
+  const updateLastSputumCheckDate = async (date: string) => {
+    const newSettings = { ...settings, lastSputumCheckDate: date };
+    await saveSettings(newSettings);
+    
+    if (settings.sputumReminderEnabled && notificationsSupported) {
+      await NotificationService.scheduleSputumReminder(date);
     }
   };
 
@@ -111,6 +132,7 @@ export const useSettings = () => {
     notificationsSupported,
     updateSetting,
     updateMedicationAlarmTime,
+    updateLastSputumCheckDate,
     sendTestNotification,
     getScheduledNotifications,
   };

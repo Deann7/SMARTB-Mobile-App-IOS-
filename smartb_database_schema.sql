@@ -340,19 +340,19 @@ CREATE OR REPLACE FUNCTION schedule_sputum_reminders(
     p_user_id UUID
 ) RETURNS VOID AS $$
 DECLARE
-    v_treatment_start_date VARCHAR(10);
+    v_created_at TIMESTAMP WITH TIME ZONE;
     v_treatment_date DATE;
     v_reminder_date DATE;
 BEGIN
-    -- Get treatment start date
-    SELECT treatment_start_date INTO v_treatment_start_date
-    FROM user_profiles 
-    WHERE user_id = p_user_id;
-    
-    IF v_treatment_start_date IS NOT NULL THEN
+    -- Get user account creation date
+    SELECT created_at INTO v_created_at
+    FROM users
+    WHERE id = p_user_id;
+
+    IF v_created_at IS NOT NULL THEN
         BEGIN
-            -- Convert string to date
-            v_treatment_date := v_treatment_start_date::DATE;
+            -- Convert timestamp to date
+            v_treatment_date := v_created_at::DATE;
             
             -- Schedule sputum collection reminders
             -- Month 0 (baseline)
