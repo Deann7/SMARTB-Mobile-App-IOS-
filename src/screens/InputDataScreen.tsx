@@ -231,8 +231,8 @@ export const InputDataScreen: React.FC = () => {
 
       await DailyInputService.submitDailyInput(inputData);
       
-      // Navigate to conclusion page
-      setCurrentPage(5);
+      // Navigate to dashboard after successful submission
+      router.replace('/(protected)/dashboard' as any);
     } catch (error) {
       console.error('Submit data error:', error);
       Alert.alert('Error', 'Gagal menyimpan data. Silakan coba lagi.');
@@ -553,91 +553,7 @@ export const InputDataScreen: React.FC = () => {
                   </TouchableOpacity>
                 </View>
               </View>
-            ) : (
-              // Page 5: Conclusion/Recommendations
-              <View className="flex-1">
-                <Text className="text-[#2D5A4F] font-kollektif text-xl font-bold text-center mb-6">
-                  Rekomendasi untuk {existingData?.user_id ? 'Anda' : 'Anda'}
-                </Text>
-
-                {/* Points Earned */}
-                <View className="bg-green-50 rounded-lg p-4 mb-6">
-                  <Text className="text-green-700 font-kollektif text-lg font-bold text-center">
-                    +{existingData?.points_earned || 100} Poin!
-                  </Text>
-                  <Text className="text-green-600 font-kollektif text-sm text-center">
-                    Terima kasih telah menginput data hari ini
-                  </Text>
-                </View>
-
-                {/* First Recommendation */}
-                <View className="mb-6">
-                  <Text className="text-[#2D5A4F] font-kollektif text-base mb-4">
-                    Melakukan latihan pernafasan untuk mengurangi sesak nafas
-                  </Text>
-                  
-                  {/* Video Placeholder */}
-                  <View className="w-full h-48 bg-black rounded-lg mb-4 items-center justify-center">
-                    <View className="items-center">
-                      <Ionicons name="play-circle" size={48} color="white" />
-                      <Text className="text-white font-kollektif text-sm mt-2">
-                        3 Breaths
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Second Recommendation */}
-                <View className="mb-6">
-                  <Text className="text-[#2D5A4F] font-kollektif text-base mb-4">
-                    Mengonsumsi makanan dengan nilai gizi yang cukup dan tentunya kamu sukai
-                  </Text>
-                  
-                  {/* Food Illustrations */}
-                  <View className="flex-row justify-between">
-                    <View className="items-center">
-                      <View className="w-16 h-16 bg-white rounded-lg border border-gray-300 items-center justify-center mb-2">
-                        <Ionicons name="restaurant" size={24} color="#2D5A4F" />
-                      </View>
-                      <Text className="text-[#2D5A4F] font-kollektif text-xs text-center">
-                        Sup Sayuran
-                      </Text>
-                    </View>
-                    
-                    <View className="items-center">
-                      <View className="w-16 h-16 bg-white rounded-lg border border-gray-300 items-center justify-center mb-2">
-                        <Ionicons name="fish" size={24} color="#2D5A4F" />
-                      </View>
-                      <Text className="text-[#2D5A4F] font-kollektif text-xs text-center">
-                        Ikan & Sayur
-                      </Text>
-                    </View>
-                    
-                    <View className="items-center">
-                      <View className="w-16 h-16 bg-white rounded-lg border border-gray-300 items-center justify-center mb-2">
-                        <Ionicons name="leaf" size={24} color="#2D5A4F" />
-                      </View>
-                      <Text className="text-[#2D5A4F] font-kollektif text-xs text-center">
-                        Salad Segar
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Action Buttons */}
-                <View className="mt-8">
-                  <TouchableOpacity
-                    onPress={handleGoToDashboard}
-                    className="bg-[#2D5A4F] py-3 px-6 rounded-lg mb-3"
-                    activeOpacity={0.8}
-                  >
-                    <Text className="text-white font-kollektif text-base font-semibold text-center">
-                      Kembali ke Dashboard
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
+            ) : null}
           </View>
 
           {/* Footer */}
