@@ -4,6 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   SafeAreaView,
   ScrollView,
@@ -18,11 +19,13 @@ import { AuthService } from '../services/authService';
 interface CameraVerificationProps {
   onVerificationSuccess: () => void;
   onVerificationFailed: () => void;
+  onVerificationStart?: () => void;
 }
 
 const CameraVerification: React.FC<CameraVerificationProps> = ({
   onVerificationSuccess,
-  onVerificationFailed
+  onVerificationFailed,
+  onVerificationStart
 }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<'front' | 'back'>('front');
@@ -35,6 +38,7 @@ const CameraVerification: React.FC<CameraVerificationProps> = ({
     if (isVerifying) return;
 
     try {
+      if (onVerificationStart) onVerificationStart();
       setIsVerifying(true);
 
       if (!cameraRef.current) throw new Error('Camera not ready');
@@ -101,7 +105,7 @@ const CameraVerification: React.FC<CameraVerificationProps> = ({
       console.log('API Response:', json);
 
       // Check for acceptance - handle both 'accepted' and other possible response formats
-      const accepted = json.accepted === true || json.success === true;
+      const accepted = json.accepted === true;
 
       if (accepted) {
         console.log('Verification successful');
@@ -110,7 +114,7 @@ const CameraVerification: React.FC<CameraVerificationProps> = ({
           { text: 'OK', onPress: () => onVerificationSuccess() },
         ]);
       } else {
-        console.log('Verification rejected by API');
+        console.log('Verification rejected');
         // Rejected by server: prompt user to retake
         Alert.alert(
           'Verifikasi Ditolak', 
@@ -180,7 +184,7 @@ const CameraVerification: React.FC<CameraVerificationProps> = ({
   }
 
   return (
-    <View className="w-full h-80 rounded-lg border-2 border-black overflow-hidden bg-black">
+    <View className="w-full h-96 rounded-lg border-2 border-black overflow-hidden bg-black">
       <CameraView
         ref={cameraRef}
         style={{ flex: 1 }}
@@ -194,13 +198,13 @@ const CameraVerification: React.FC<CameraVerificationProps> = ({
               onPress={toggleFlash}
               className="w-10 h-10 bg-black/50 rounded-full items-center justify-center"
             >
-              <Ionicons 
-                name={flash === 'on' ? "flash" : "flash-off"} 
-                size={20} 
-                color="white" 
+              <Ionicons
+                name={flash === 'on' ? "flash" : "flash-off"}
+                size={20}
+                color="white"
               />
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               onPress={toggleCameraFacing}
               className="w-10 h-10 bg-black/50 rounded-full items-center justify-center"
@@ -209,32 +213,23 @@ const CameraVerification: React.FC<CameraVerificationProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Verification Guide */}
-          <View className="absolute inset-0 items-center justify-center pointer-events-none">
-            <View className="w-48 h-48 border-2 border-white/70 rounded-full items-center justify-center">
-              <Text className="text-white font-kollektif text-sm bg-black/50 px-3 py-1 rounded">
-                Posisikan wajah di dalam lingkaran
-              </Text>
-            </View>
-          </View>
-
           {/* Verification Button */}
           <View className="absolute bottom-8 left-0 right-0 items-center">
             <TouchableOpacity
               onPress={handleVerification}
               disabled={isVerifying}
-              className={`w-16 h-16 rounded-full border-4 border-white items-center justify-center ${
+              className={`w-20 h-20 rounded-full border-4 border-white items-center justify-center ${
                 isVerifying ? 'bg-blue-500' : 'bg-transparent'
               }`}
             >
               {isVerifying ? (
-                <Ionicons name="eye" size={32} color="white" />
+                <Ionicons name="eye" size={36} color="white" />
               ) : (
-                <Ionicons name="scan" size={32} color="white" />
+                <Ionicons name="scan" size={36} color="white" />
               )}
             </TouchableOpacity>
-            
-            <Text className="text-white font-kollektif text-xs mt-2 bg-black/50 px-2 py-1 rounded">
+
+            <Text className="text-white font-kollektif text-sm mt-2 bg-black/50 px-2 py-1 rounded">
               {isVerifying ? 'Memverifikasi...' : 'Tekan untuk verifikasi'}
             </Text>
           </View>
@@ -282,6 +277,7 @@ export const CameraVerificationScreen: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isVerified, setIsVerified] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -326,6 +322,7 @@ export const CameraVerificationScreen: React.FC = () => {
 
   const handleVerificationSuccess = () => {
     setIsVerified(true);
+    setVerifying(false);
     // Navigate to input data after verification
     setTimeout(() => {
       router.push('/(protected)/input-data' as any);
@@ -334,7 +331,8 @@ export const CameraVerificationScreen: React.FC = () => {
 
   const handleVerificationFailed = () => {
     setIsVerified(false);
-    Alert.alert('Verifikasi Gagal', 'Pastikan wajah Anda terlihat jelas di kamera');
+    setVerifying(false);
+    Alert.alert('Verifikasi Gagal', 'Pastikan wajah dan obat terlihat jelas di kamera.');
   };
 
   const handleBackPress = () => {
@@ -394,13 +392,14 @@ export const CameraVerificationScreen: React.FC = () => {
             <CameraVerification
               onVerificationSuccess={handleVerificationSuccess}
               onVerificationFailed={handleVerificationFailed}
+              onVerificationStart={() => setVerifying(true)}
             />
           </View>
 
           {/* Instructions */}
           <View className="px-6 py-4">
             <Text className="text-gray-600 font-kollektif text-sm text-center leading-5">
-              Posisikan wajah Anda di dalam lingkaran dan tekan tombol untuk melakukan verifikasi. Pastikan pencahayaan cukup dan wajah terlihat jelas.
+              Pastikan wajah anda dan obat yang diminum terlihat jelas di kamera. Pegang obat dengan jelas di tangan Anda. Pastikan pencahayaan cukup dan wajah terlihat jelas.
             </Text>
           </View>
 
@@ -426,6 +425,13 @@ export const CameraVerificationScreen: React.FC = () => {
             </Text>
           </View>
         </ScrollView>
+
+        {verifying && (
+          <View className="absolute inset-0 bg-black/70 items-center justify-center z-50">
+            <ActivityIndicator size="large" color="white" />
+            <Text className="text-white font-kollektif text-lg mt-4">Memverifikasi...</Text>
+          </View>
+        )}
       </SafeAreaView>
     </>
   );
