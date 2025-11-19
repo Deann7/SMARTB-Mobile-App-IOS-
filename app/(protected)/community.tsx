@@ -1,5 +1,5 @@
-import { CommunityComingSoonScreen } from '../../src/screens/CommunityComingSoonScreen';
+import CommunityScreen from '../../src/screens/CommunityScreen';
 
 export default function CommunityPage() {
-  return <CommunityComingSoonScreen />;
+  return <CommunityScreen />;
 }

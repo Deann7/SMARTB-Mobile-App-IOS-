@@ -288,6 +288,24 @@ export const SettingsScreen: React.FC = () => {
               )}
             </View>
 
+            {/* Sputum Reminder */}
+            <View className="bg-gray-100 rounded-lg p-4 mb-4">
+              <View className="flex-row justify-between items-center mb-2">
+                <View className="flex-1 pr-4">
+                  <Text className="text-gray-700 font-kollektif text-base">
+                    Pengingat Sputum Checkup
+                  </Text>
+                  <Text className="text-gray-500 font-kollektif text-xs mt-1">
+                    Pengingat setiap 6 bulan sekali
+                  </Text>
+                </View>
+                <CustomToggle
+                  value={settings.sputumReminderEnabled}
+                  onValueChange={(value) => updateSetting('sputumReminderEnabled', value)}
+                />
+              </View>
+            </View>
+
             {/* Notifikasi */}
             <View className="bg-gray-100 rounded-lg p-4 mb-4">
               <View className="flex-row justify-between items-center mb-2">

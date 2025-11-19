@@ -33,7 +33,7 @@ const ChatbotScreen = () => {
         #chatbot-container {
           flex: 1;
           width: 100%;
-          height: 100%;
+          height: 80vh;
           position: relative;
         }
       </style>

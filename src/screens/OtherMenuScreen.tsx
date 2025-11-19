@@ -112,7 +112,7 @@ export const OtherMenuScreen: React.FC = () => {
               >
                 <View className="items-center">
                   <Image 
-                    source={require('../../assets/images/png/about-tb.png')}
+                    source={require('../../assets/images/png/about-tb.webp')}
                     style={{ width: 72, height: 72 }}
                     />
                   <Text className="text-[#1c4735] font-kollektif text-base font-medium text-center mt-3">
@@ -130,7 +130,7 @@ export const OtherMenuScreen: React.FC = () => {
               >
                 <View className="items-center">
                   <Image 
-                    source={require('../../assets/images/png/settings.png')}
+                    source={require('../../assets/images/png/settings.webp')}
                     style={{ width: 72, height: 72 }}
       
                   />
@@ -149,7 +149,7 @@ export const OtherMenuScreen: React.FC = () => {
               >
                 <View className="items-center">
                   <Image 
-                    source={require('../../assets/images/png/community.png')}
+                    source={require('../../assets/images/png/community.webp')}
                     style={{ width: 72, height: 72 }}
                    
                   />
@@ -168,7 +168,7 @@ export const OtherMenuScreen: React.FC = () => {
               >
                 <View className="items-center">
                   <Image 
-                    source={require('../../assets/images/png/consultation.png')}
+                    source={require('../../assets/images/png/consultation.webp')}
                       style={{ width: 72, height: 72 }}
                    
                   />
