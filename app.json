@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "SMARTB-IOS",
-    "slug": "smartb-ios",
+    "name": "SMARTB 2.0",
+    "slug": "smartb",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -20,6 +20,9 @@
       "bundleIdentifier": "com.anonymous.smartbios",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "runtimeVersion": {
+        "policy": "appVersion"
       }
     },
     "android": {
@@ -31,8 +34,11 @@
       "package": "com.anonymous.smartbios",
       "permissions": [
         "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
-      ]
+      ],
+      "runtimeVersion": "1.0.0"
     },
     "web": {
       "bundler": "metro",
@@ -57,8 +63,12 @@
         "origin": false
       },
       "eas": {
-        "projectId": "c8e4fb64-abd1-4714-9fef-d4c575245d90"
+        "projectId": "b9223e25-0742-480b-b550-eaf2d6931b25"
       }
+    },
+    "owner": "smartb-tekkom",
+    "updates": {
+      "url": "https://u.expo.dev/b9223e25-0742-480b-b550-eaf2d6931b25"
     }
   }
 }

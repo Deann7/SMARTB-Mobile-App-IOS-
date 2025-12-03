@@ -4,6 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   SafeAreaView,
   ScrollView,
@@ -18,11 +19,13 @@ import { AuthService } from '../services/authService';
 interface CameraVerificationProps {
   onVerificationSuccess: () => void;
   onVerificationFailed: () => void;
+  onVerificationStart?: () => void;
 }
 
 const CameraVerification: React.FC<CameraVerificationProps> = ({
   onVerificationSuccess,
-  onVerificationFailed
+  onVerificationFailed,
+  onVerificationStart
 }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<'front' | 'back'>('front');
@@ -35,33 +38,105 @@ const CameraVerification: React.FC<CameraVerificationProps> = ({
     if (isVerifying) return;
 
     try {
+      if (onVerificationStart) onVerificationStart();
       setIsVerifying(true);
+
+      if (!cameraRef.current) throw new Error('Camera not ready');
+
+      // Capture photo from camera with optimized settings
+      console.log('Capturing photo...');
+      const photo = await cameraRef.current.takePictureAsync({ 
+        quality: 0.8,
+        skipProcessing: false,
+      });
       
-      // Simulate verification process with a short delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (!photo || !photo.uri) {
+        throw new Error('Failed to capture photo - no URI');
+      }
+
+      const uri = photo.uri;
+      console.log('Photo captured successfully:', uri);
+
+      // Prepare multipart/form-data with proper file handling
+      const formData = new FormData();
       
-      setVerificationComplete(true);
+      // Generate filename with timestamp to avoid caching
+      const timestamp = Date.now();
+      const fileName = `face_verification_${timestamp}.jpg`;
       
-      // Show success feedback
-      Alert.alert(
-        'Verifikasi Berhasil',
-        'Verifikasi wajah berhasil dilakukan!',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              onVerificationSuccess();
-            }
-          }
-        ]
-      );
-    } catch (error) {
+      // Append file with proper MIME type
+      formData.append('image', {
+        uri,
+        name: fileName,
+        type: 'image/jpeg',
+      } as any);
+
+      console.log('Uploading image to API...', fileName);
+
+      // Upload with timeout and better error handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      const res = await fetch('https://eat-medicine.vercel.app/pose', {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      clearTimeout(timeoutId);
+
+      console.log('API Response Status:', res.status);
+
+      if (!res.ok) {
+        const responseText = await res.text().catch(() => '');
+        console.error('Upload failed with status', res.status, ':', responseText);
+        throw new Error(`API returned status ${res.status}: ${responseText || 'Unknown error'}`);
+      }
+
+      // Parse response
+      const json = await res.json().catch((err) => {
+        console.error('Failed to parse response JSON:', err);
+        return {};
+      });
+
+      console.log('API Response:', json);
+
+      // Check for acceptance - handle both 'accepted' and other possible response formats
+      const accepted = json.accepted === true;
+
+      if (accepted) {
+        console.log('Verification successful');
+        setVerificationComplete(true);
+        Alert.alert('Verifikasi Berhasil', 'Verifikasi wajah berhasil dilakukan!', [
+          { text: 'OK', onPress: () => onVerificationSuccess() },
+        ]);
+      } else {
+        console.log('Verification rejected');
+        // Rejected by server: prompt user to retake
+        Alert.alert(
+          'Verifikasi Ditolak', 
+          'Pastikan anda mengikuti instruksi dengan benar!',
+          [{ text: 'OK', onPress: () => onVerificationFailed() }]
+        );
+      }
+    } catch (error: any) {
       console.error('Error during verification:', error);
-      Alert.alert(
-        'Error',
-        'Gagal melakukan verifikasi. Silakan coba lagi.',
-        [{ text: 'OK' }]
-      );
+      
+      // Provide specific error messages
+      let errorMessage = 'Gagal melakukan verifikasi. Silakan coba lagi.';
+      
+      if (error.name === 'AbortError') {
+        errorMessage = 'Request timeout. Pastikan koneksi internet stabil.';
+      } else if (error instanceof TypeError) {
+        errorMessage = 'Koneksi gagal. Periksa internet Anda.';
+      } else if (error.message) {
+        console.error('Error details:', error.message);
+      }
+      
+      Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
       onVerificationFailed();
     } finally {
       setIsVerifying(false);
@@ -109,7 +184,7 @@ const CameraVerification: React.FC<CameraVerificationProps> = ({
   }
 
   return (
-    <View className="w-full h-80 rounded-lg border-2 border-black overflow-hidden bg-black">
+    <View className="w-full h-96 rounded-lg border-2 border-black overflow-hidden bg-black">
       <CameraView
         ref={cameraRef}
         style={{ flex: 1 }}
@@ -123,13 +198,13 @@ const CameraVerification: React.FC<CameraVerificationProps> = ({
               onPress={toggleFlash}
               className="w-10 h-10 bg-black/50 rounded-full items-center justify-center"
             >
-              <Ionicons 
-                name={flash === 'on' ? "flash" : "flash-off"} 
-                size={20} 
-                color="white" 
+              <Ionicons
+                name={flash === 'on' ? "flash" : "flash-off"}
+                size={20}
+                color="white"
               />
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               onPress={toggleCameraFacing}
               className="w-10 h-10 bg-black/50 rounded-full items-center justify-center"
@@ -138,32 +213,23 @@ const CameraVerification: React.FC<CameraVerificationProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Verification Guide */}
-          <View className="absolute inset-0 items-center justify-center pointer-events-none">
-            <View className="w-48 h-48 border-2 border-white/70 rounded-full items-center justify-center">
-              <Text className="text-white font-kollektif text-sm bg-black/50 px-3 py-1 rounded">
-                Posisikan wajah di dalam lingkaran
-              </Text>
-            </View>
-          </View>
-
           {/* Verification Button */}
           <View className="absolute bottom-8 left-0 right-0 items-center">
             <TouchableOpacity
               onPress={handleVerification}
               disabled={isVerifying}
-              className={`w-16 h-16 rounded-full border-4 border-white items-center justify-center ${
+              className={`w-20 h-20 rounded-full border-4 border-white items-center justify-center ${
                 isVerifying ? 'bg-blue-500' : 'bg-transparent'
               }`}
             >
               {isVerifying ? (
-                <Ionicons name="eye" size={32} color="white" />
+                <Ionicons name="eye" size={36} color="white" />
               ) : (
-                <Ionicons name="scan" size={32} color="white" />
+                <Ionicons name="scan" size={36} color="white" />
               )}
             </TouchableOpacity>
-            
-            <Text className="text-white font-kollektif text-xs mt-2 bg-black/50 px-2 py-1 rounded">
+
+            <Text className="text-white font-kollektif text-sm mt-2 bg-black/50 px-2 py-1 rounded">
               {isVerifying ? 'Memverifikasi...' : 'Tekan untuk verifikasi'}
             </Text>
           </View>
@@ -211,6 +277,7 @@ export const CameraVerificationScreen: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isVerified, setIsVerified] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -255,6 +322,7 @@ export const CameraVerificationScreen: React.FC = () => {
 
   const handleVerificationSuccess = () => {
     setIsVerified(true);
+    setVerifying(false);
     // Navigate to input data after verification
     setTimeout(() => {
       router.push('/(protected)/input-data' as any);
@@ -263,7 +331,8 @@ export const CameraVerificationScreen: React.FC = () => {
 
   const handleVerificationFailed = () => {
     setIsVerified(false);
-    Alert.alert('Verifikasi Gagal', 'Pastikan wajah Anda terlihat jelas di kamera');
+    setVerifying(false);
+    Alert.alert('Verifikasi Gagal', 'Pastikan wajah dan obat terlihat jelas di kamera.');
   };
 
   const handleBackPress = () => {
@@ -323,13 +392,14 @@ export const CameraVerificationScreen: React.FC = () => {
             <CameraVerification
               onVerificationSuccess={handleVerificationSuccess}
               onVerificationFailed={handleVerificationFailed}
+              onVerificationStart={() => setVerifying(true)}
             />
           </View>
 
           {/* Instructions */}
           <View className="px-6 py-4">
             <Text className="text-gray-600 font-kollektif text-sm text-center leading-5">
-              Posisikan wajah Anda di dalam lingkaran dan tekan tombol untuk melakukan verifikasi. Pastikan pencahayaan cukup dan wajah terlihat jelas.
+              Pastikan wajah anda dan obat yang diminum terlihat jelas di kamera. Pegang obat dengan jelas di tangan Anda. Pastikan pencahayaan cukup dan wajah terlihat jelas.
             </Text>
           </View>
 
@@ -355,6 +425,13 @@ export const CameraVerificationScreen: React.FC = () => {
             </Text>
           </View>
         </ScrollView>
+
+        {verifying && (
+          <View className="absolute inset-0 bg-black/70 items-center justify-center z-50">
+            <ActivityIndicator size="large" color="white" />
+            <Text className="text-white font-kollektif text-lg mt-4">Memverifikasi...</Text>
+          </View>
+        )}
       </SafeAreaView>
     </>
   );

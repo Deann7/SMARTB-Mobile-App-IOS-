@@ -288,15 +288,21 @@ export class ReminderService {
   }
 
   // Get next sputum collection date
-  static async getNextSputumCollectionDate(): Promise<SputumCollectionSchedule | null> {
+  static async getNextSputumCollectionDate(userId?: string): Promise<SputumCollectionSchedule | null> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      let userIdToUse = userId;
+
+      // If no userId provided, try to get from auth
+      if (!userIdToUse) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('User not authenticated');
+        userIdToUse = user.id;
+      }
 
       const { data, error } = await supabase
         .from('sputum_collection_schedule')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userIdToUse)
         .eq('is_completed', false)
         .gte('collection_date', new Date().toISOString().split('T')[0])
         .order('collection_date', { ascending: true })
@@ -312,33 +318,51 @@ export class ReminderService {
   }
 
   // Get treatment progress for reminders
-  static async getTreatmentProgress() {
+  static async getTreatmentProgress(userId?: string) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      let userIdToUse = userId;
 
-      const { data, error } = await supabase
+      // If no userId provided, try to get from auth
+      if (!userIdToUse) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('User not authenticated');
+        userIdToUse = user.id;
+      }
+
+      // Get both user profile and user account creation date
+      const { data: profileData, error: profileError } = await supabase
         .from('user_profiles')
         .select('treatment_start_date, treatment_phase, current_day')
-        .eq('user_id', user.id)
+        .eq('user_id', userIdToUse)
         .single();
 
-      if (error) throw error;
+      if (profileError) throw profileError;
 
-      const treatmentStartDate = new Date(data.treatment_start_date);
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('created_at')
+        .eq('id', userIdToUse)
+        .single();
+
+      if (userError) throw userError;
+
+      const treatmentStartDate = new Date(profileData.treatment_start_date);
+      const accountCreationDate = new Date(userData.created_at);
       const today = new Date();
       const daysSinceStart = Math.floor((today.getTime() - treatmentStartDate.getTime()) / (1000 * 60 * 60 * 24));
 
       const twoMonthDate = new Date(treatmentStartDate);
       twoMonthDate.setMonth(twoMonthDate.getMonth() + 2);
 
-      const sixMonthDate = new Date(treatmentStartDate);
+      // Use account creation date for 6-month sputum reminder calculation
+      const sixMonthDate = new Date(accountCreationDate);
       sixMonthDate.setMonth(sixMonthDate.getMonth() + 6);
 
       return {
-        treatmentStartDate: data.treatment_start_date,
-        treatmentPhase: data.treatment_phase,
-        currentDay: data.current_day,
+        treatmentStartDate: profileData.treatment_start_date,
+        accountCreationDate: userData.created_at,
+        treatmentPhase: profileData.treatment_phase,
+        currentDay: profileData.current_day,
         daysSinceStart,
         twoMonthDate: twoMonthDate.toISOString().split('T')[0],
         sixMonthDate: sixMonthDate.toISOString().split('T')[0],
